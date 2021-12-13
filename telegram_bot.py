@@ -34,7 +34,8 @@ class TelegramMessage:
         try:
             if self.message_dict["entities"][0]["type"] == "bot_command":
                 self.is_bot_command = True
-
+        except TypeError:
+            pass
         except KeyError:
             pass
 
@@ -42,11 +43,17 @@ class TelegramMessage:
 @dataclass
 class TelegramBot:
     BotCommand: List[Callable[[TelegramBot, TelegramMessage], None]]
-    bot_commands: BotCommand
-    commands_to_run_on_loop: BotCommand
-    commands_to_run_on_every_message: BotCommand
+    bot_commands: BotCommand = None
+    commands_to_run_on_loop: BotCommand = None
+    commands_to_run_on_every_message: BotCommand = None
 
     def __init__(self, access_token: str):
+        if not self.bot_commands:
+            self.bot_commands = []
+        if not self.commands_to_run_on_loop:
+            self.commands_to_run_on_loop = []
+        if not self.commands_to_run_on_every_message:
+            self.commands_to_run_on_every_message = []
         self.access_token = access_token
         self.api_url = f"https://api.telegram.org/bot{self.access_token}/"
         self.saved_data_default_path = Path("ignore/data.json")
