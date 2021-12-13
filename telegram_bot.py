@@ -56,7 +56,7 @@ class TelegramBot:
             self.commands_to_run_on_every_message = []
         self.access_token = access_token
         self.api_url = f"https://api.telegram.org/bot{self.access_token}/"
-        self.saved_data_default_path = Path("ignore/data.json")
+        self.saved_data_default_path = Path("data.json")
         logger.remove()
         self.default_log_format = "<g>{time:MM/DD/YYYY HH:mm:ss}</g> | <lvl>{level}</lvl> | <lvl><b>{message}</b></lvl>"
         self.saved_data = None
