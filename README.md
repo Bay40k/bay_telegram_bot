@@ -1,6 +1,6 @@
 # bay_telegram_bot
 
-Simple object oriented Telegram REST API bot.
+Simple object oriented Telegram HTTP API bot.
 
 ##### Installation:
 ```python

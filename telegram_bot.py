@@ -42,10 +42,16 @@ class TelegramMessage:
 
 @dataclass
 class TelegramBot:
-    BotCommand: List[Callable[[TelegramBot, TelegramMessage], None]]
-    bot_commands: BotCommand = None
-    commands_to_run_on_loop: BotCommand = None
-    commands_to_run_on_every_message: BotCommand = None
+    """
+    Telegram bot object.
+    :attr bot_commands: List of BotCommand to execute
+    :attr commands_to_run_on_loop: List of BotCommand to execute every on_loop()
+    :attr commands_to_run_on_every_message: List of BotCommand to execute on every message
+    """
+    BotCommand: Callable[[TelegramBot, TelegramMessage], None]
+    bot_commands: List[BotCommand] = None
+    commands_to_run_on_loop: List[BotCommand] = None
+    commands_to_run_on_every_message: List[BotCommand] = None
 
     def __init__(self, access_token: str):
         if not self.bot_commands:
@@ -56,7 +62,7 @@ class TelegramBot:
             self.commands_to_run_on_every_message = []
         self.access_token = access_token
         self.api_url = f"https://api.telegram.org/bot{self.access_token}/"
-        self.saved_data_default_path = Path("data.json")
+        self.saved_data_path = Path("data.json")
         logger.remove()
         self.default_log_format = "<g>{time:MM/DD/YYYY HH:mm:ss}</g> | <lvl>{level}</lvl> | <lvl><b>{message}</b></lvl>"
         self.saved_data = None
@@ -72,15 +78,18 @@ class TelegramBot:
             log_format = self.default_log_format
         logger.add(sys.stderr, format=log_format, level=log_level, colorize=True)
 
-    def send_message(self, chat_id: str, text: str) -> requests.Response:
+    def send_message(self, chat_id: str, text: str, parse_mode: str = None) -> requests.Response:
         """
         Sends Telegram message.
         :param chat_id: Chat ID
         :param text: Message text
+        :param parse_mode: Message parsing mode
         :return: Requests response object
         """
         logger.debug(f"Sending message '{text}' to chat '{chat_id}'")
         data = {"chat_id": chat_id, "text": text}
+        if parse_mode:
+            data.update({"parse_mode": parse_mode})
         return requests.post(self.api_url + "sendMessage", data=data)
 
     def get_updates(self, offset: int = None, allowed_updates: str = None) -> requests.Response:
@@ -105,9 +114,10 @@ class TelegramBot:
             for command in commands_to_run:
                 command(self, msg)
         except Exception as e:
-            print(e)
-            self.send_message(msg.chat_id,
-                              f"There was an error running the command:\n{traceback.format_exc()}")
+            if msg:
+                self.send_message(msg.chat_id,
+                                  f"There was an error running the command:\n{e}")
+            raise e
 
     @staticmethod
     def check_if_update_a_message(update_to_check: dict) -> Union[dict, bool]:
@@ -131,7 +141,7 @@ class TelegramBot:
         :return: None
         """
         if not file_to_save:
-            file_to_save = self.saved_data_default_path
+            file_to_save = self.saved_data_path
         if self.saved_data:
             data_to_save = self.saved_data
         caller_name = inspect.stack()[1][3]
@@ -148,7 +158,7 @@ class TelegramBot:
         if self.saved_data:
             return self.saved_data
         if not file_to_read:
-            file_to_read = self.saved_data_default_path
+            file_to_read = self.saved_data_path
         caller_name = inspect.stack()[1][3]
         logger.debug(f"{caller_name} | Reading from JSON file '{file_to_read.resolve()}'")
         with open(file_to_read, "r") as f:
