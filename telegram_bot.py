@@ -64,7 +64,7 @@ class BotCommand:
     bot: TelegramBot
 
     def __init__(self):
-        if self.msg and self.cmd_name.lower() in self.msg.text.lower():
+        if self.msg and self.cmd_name.lower() in self.msg.text.lower() and self.msg.is_bot_command:
             self.arguments = self.msg.text.split(" ")[1:]
             from_string = ""
             if self.msg.sender:
