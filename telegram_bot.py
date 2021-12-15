@@ -48,9 +48,9 @@ class BotCommand:
     :attr msg: TelegramMessage object to read from
     """
     cmd_name: str
+    arguments: str
     msg: TelegramMessage
     bot: TelegramBot
-    arguments: str
 
     def __init__(self):
         if self.msg and self.cmd_name.lower() in self.msg.text.lower():
@@ -63,10 +63,13 @@ class BotCommand:
         raise NotImplementedError
 
 
+@dataclass
 class CmdHelp(BotCommand):
     """
     Help command that returns list of commands from getMyCommands on /help.
+    :attr command_list: Optional additional commands to add to /help command
     """
+    command_list: list = None
 
     def __init__(self, bot: TelegramBot, msg: TelegramMessage):
         self.bot = bot
@@ -75,9 +78,11 @@ class CmdHelp(BotCommand):
         super().__init__()
 
     def execute(self):
+        if not self.command_list:
+            self.command_list = []
         command_list_string = ""
-        command_list = self.bot.get_my_commands()["result"]
-        for command in command_list:
+        self.command_list += self.bot.get_my_commands()["result"]
+        for command in self.command_list:
             command_list_string += f"/{command['command']} {command['description']}\n"
         self.bot.send_message(self.msg.chat_id, command_list_string)
 
@@ -89,11 +94,13 @@ class TelegramBot:
     :attr bot_commands: List of BotCommand to execute
     :attr commands_to_run_on_loop: List of BotCommand to execute every on_loop()
     :attr commands_to_run_on_every_message: List of BotCommand to execute on every message
+    :attr help_command: Help command to use
     """
     BotCommand: Callable[[TelegramBot, TelegramMessage], None]
     bot_commands: List[BotCommand] = None
     commands_to_run_on_loop: List[BotCommand] = None
     commands_to_run_on_every_message: List[BotCommand] = None
+    help_command: CmdHelp = CmdHelp
 
     def __init__(self, access_token: str):
         if not self.bot_commands:
@@ -102,7 +109,6 @@ class TelegramBot:
             self.commands_to_run_on_loop = []
         if not self.commands_to_run_on_every_message:
             self.commands_to_run_on_every_message = []
-        self.bot_commands += []
         self.access_token = access_token
         self.api_url = f"https://api.telegram.org/bot{self.access_token}/"
         self.saved_data_path = Path("data.json")
@@ -238,7 +244,7 @@ class TelegramBot:
             logger.debug(f"New message from #{message.chat_id} "
                          f"{message.sender['first_name']} (@{message.sender['username']})")
             if message.is_bot_command:
-                CmdHelp(self, message)
+                self.help_command(self, message)
                 self.run_commands(self.bot_commands, message)
             else:
                 self.run_commands(self.commands_to_run_on_every_message, message)
