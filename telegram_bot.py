@@ -228,7 +228,7 @@ class BotCommand:
     bot: TelegramBot
 
     def __init__(self):
-        if self.msg and self.cmd_name in self.msg.text:
+        if self.msg and self.cmd_name.lower() in self.msg.text.lower():
             logger.debug(f"Executing command: '{self.msg.text}' "
                          f"from {self.msg.sender['first_name']} (@{self.msg.sender['username']})")
             self.execute()
