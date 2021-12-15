@@ -16,7 +16,7 @@ class TelegramMessage:
     Telegram message object.
     :attr chat_id: Chat ID of the message
     :attr msg_id: ID of the message
-    :attr first_name: First name of message sender
+    :attr sender: Message sender dict
     :attr text: Message text
     """
 
