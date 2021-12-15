@@ -69,7 +69,7 @@ class BotCommand:
             from_string = ""
             if self.msg.sender:
                 from_string += f" from {self.msg.sender['first_name']} (@{self.msg.sender['username']})"
-            logger.debug(f"Executing command: '/{self.cmd_name} {self.arguments}'" + from_string)
+            logger.debug(f"Executing command: '{self.cmd_name} {' '.join(self.arguments)}'" + from_string)
             self.execute()
 
     def execute(self):
