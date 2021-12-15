@@ -41,6 +41,48 @@ class TelegramMessage:
 
 
 @dataclass
+class BotCommand:
+    """
+    Bot command object.
+    :attr cmd_name: Slash command that triggers the bot command
+    :attr msg: TelegramMessage object to read from
+    """
+    cmd_name: str
+    msg: TelegramMessage
+    bot: TelegramBot
+    arguments: str
+
+    def __init__(self):
+        if self.msg and self.cmd_name.lower() in self.msg.text.lower():
+            self.arguments = self.msg.text.split(" ")[1:]
+            logger.debug(f"Executing command: '{self.msg.text}' "
+                         f"from {self.msg.sender['first_name']} (@{self.msg.sender['username']})")
+            self.execute()
+
+    def execute(self):
+        raise NotImplementedError
+
+
+class CmdHelp(BotCommand):
+    """
+    Help command that returns list of commands from getMyCommands on /help.
+    """
+
+    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
+        self.bot = bot
+        self.msg = msg
+        self.cmd_name = "/help"
+        super().__init__()
+
+    def execute(self):
+        command_list_string = ""
+        command_list = self.bot.get_my_commands()["result"]
+        for command in command_list:
+            command_list_string += f"/{command['command']} {command['description']}\n"
+        self.bot.send_message(self.msg.chat_id, command_list_string)
+
+
+@dataclass
 class TelegramBot:
     """
     Telegram bot object.
@@ -60,6 +102,7 @@ class TelegramBot:
             self.commands_to_run_on_loop = []
         if not self.commands_to_run_on_every_message:
             self.commands_to_run_on_every_message = []
+        self.bot_commands += []
         self.access_token = access_token
         self.api_url = f"https://api.telegram.org/bot{self.access_token}/"
         self.saved_data_path = Path("data.json")
@@ -91,6 +134,13 @@ class TelegramBot:
         if parse_mode:
             data.update({"parse_mode": parse_mode})
         return requests.post(self.api_url + "sendMessage", data=data)
+
+    def get_my_commands(self) -> list:
+        """
+        Sends Telegram message.
+        :return: List of bot commands
+        """
+        return requests.get(self.api_url + "getMyCommands").json()
 
     def get_updates(self, offset: int = None, allowed_updates: str = None) -> requests.Response:
         """
@@ -188,6 +238,7 @@ class TelegramBot:
             logger.debug(f"New message from #{message.chat_id} "
                          f"{message.sender['first_name']} (@{message.sender['username']})")
             if message.is_bot_command:
+                CmdHelp(self, message)
                 self.run_commands(self.bot_commands, message)
             else:
                 self.run_commands(self.commands_to_run_on_every_message, message)
@@ -214,26 +265,3 @@ class TelegramBot:
                 logger.error(e)
                 logger.error(traceback.format_exc())
             time.sleep(10)
-
-
-@dataclass
-class BotCommand:
-    """
-    Bot command object.
-    :attr cmd_name: Slash command that triggers the bot command
-    :attr msg: TelegramMessage object to read from
-    """
-    cmd_name: str
-    msg: TelegramMessage
-    bot: TelegramBot
-    arguments: str
-
-    def __init__(self):
-        self.arguments = self.msg.text.split(" ")[1:]
-        if self.msg and self.cmd_name.lower() in self.msg.text.lower():
-            logger.debug(f"Executing command: '{self.msg.text}' "
-                         f"from {self.msg.sender['first_name']} (@{self.msg.sender['username']})")
-            self.execute()
-
-    def execute(self):
-        raise NotImplementedError
