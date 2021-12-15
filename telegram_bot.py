@@ -15,6 +15,7 @@ class TelegramMessage:
     """
     Telegram message object.
     :attr chat_id: Chat ID of the message
+    :attr msg_id: ID of the message
     :attr first_name: First name of message sender
     :attr text: Message text
     """
@@ -24,7 +25,8 @@ class TelegramMessage:
         :param message_dict: Message dictionary from update
         """
         self.message_dict = message_dict
-        self.chat_id = self.message_dict["chat"]["id"]
+        self.msg_id = int(self.message_dict["message_id"])
+        self.chat_id = int(self.message_dict["chat"]["id"])
         self.sender = self.message_dict["from"]
         try:
             self.text = self.message_dict["text"]
@@ -48,7 +50,7 @@ class BotCommand:
     :attr msg: TelegramMessage object to read from
     """
     cmd_name: str
-    arguments: List[Dict[str, str]]
+    arguments: list
     msg: TelegramMessage
     bot: TelegramBot
 
@@ -69,7 +71,7 @@ class CmdHelp(BotCommand):
     Help command that returns list of commands from getMyCommands on /help.
     :attr command_list: Optional additional commands to add to /help command
     """
-    command_list: list = None
+    command_list: list = List[Dict[str, str]]
 
     def __init__(self, bot: TelegramBot, msg: TelegramMessage):
         self.bot = bot
