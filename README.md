@@ -117,7 +117,7 @@ class MyCommand(BotCommand):
 def main():
     access_token = "<access token>"
     api_id = 1234
-    api_hash = ">api_hash>"
+    api_hash = "<api_hash>"
     telegram_bot = MyBot(access_token, api_id, api_hash)
     telegram_bot.bot_commands = [MyCommand]
     telegram_bot.start()
