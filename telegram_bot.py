@@ -226,8 +226,10 @@ class BotCommand:
     cmd_name: str
     msg: TelegramMessage
     bot: TelegramBot
+    arguments: str
 
     def __init__(self):
+        self.arguments = self.msg.text.split(" ")[1:]
         if self.msg and self.cmd_name.lower() in self.msg.text.lower():
             logger.debug(f"Executing command: '{self.msg.text}' "
                          f"from {self.msg.sender['first_name']} (@{self.msg.sender['username']})")
