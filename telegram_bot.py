@@ -15,6 +15,7 @@ class TelegramMessage:
     """
     Telegram message object.
     :attr chat_id: Chat ID of the message
+    :attr msg_id: ID of the message
     :attr first_name: First name of message sender
     :attr text: Message text
     """
@@ -24,7 +25,8 @@ class TelegramMessage:
         :param message_dict: Message dictionary from update
         """
         self.message_dict = message_dict
-        self.chat_id = self.message_dict["chat"]["id"]
+        self.msg_id = int(self.message_dict["message_id"])
+        self.chat_id = int(self.message_dict["chat"]["id"])
         self.sender = self.message_dict["from"]
         try:
             self.text = self.message_dict["text"]
