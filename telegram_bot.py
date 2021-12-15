@@ -7,7 +7,7 @@ import time
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List, Union
+from typing import Callable, Dict, List, Union
 from loguru import logger
 
 
@@ -48,7 +48,7 @@ class BotCommand:
     :attr msg: TelegramMessage object to read from
     """
     cmd_name: str
-    arguments: str
+    arguments: List[Dict[str, str]]
     msg: TelegramMessage
     bot: TelegramBot
 
