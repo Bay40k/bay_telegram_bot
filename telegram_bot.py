@@ -25,9 +25,18 @@ class TelegramMessage:
         :param message_dict: Message dictionary from update
         """
         self.message_dict = message_dict
-        self.msg_id = int(self.message_dict["message_id"])
-        self.chat_id = int(self.message_dict["chat"]["id"])
-        self.sender = self.message_dict["from"]
+        try:
+            self.msg_id = int(self.message_dict["message_id"])
+        except KeyError:
+            self.msg_id = None
+        try:
+            self.chat_id = int(self.message_dict["chat"]["id"])
+        except KeyError:
+            self.chat_id = None
+        try:
+            self.sender = self.message_dict["from"]
+        except KeyError:
+            self.sender = None
         try:
             self.text = self.message_dict["text"]
         except KeyError:
