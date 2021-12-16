@@ -291,7 +291,7 @@ class TelegramBot:
                 break
             message = TelegramMessage(message)
             logger.debug(f"New message from #{message.chat_id} "
-                         f"{message.sender['first_name']} (@{message.sender['username']})")
+                         f"{message.sender['first_name']} (@{str(self.msg.username)})")
             if message.is_bot_command:
                 self.run_commands(self.builtin_commands, message)
                 self.run_commands(self.bot_commands, message)
