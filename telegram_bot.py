@@ -87,7 +87,7 @@ class CmdHelp(BotCommand):
     Help command that returns list of commands from getMyCommands on /help.
     :attr command_list: Optional additional commands to add to /help command
     """
-    command_list: list = List[Dict[str, str]]
+    command_list: List[Dict[str, str]] = None
 
     def __init__(self, bot: TelegramBot, msg: TelegramMessage):
         self.bot = bot
