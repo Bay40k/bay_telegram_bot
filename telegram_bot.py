@@ -14,6 +14,7 @@ from loguru import logger
 class TelegramMessage:
     """
     Telegram message object.
+
     :attr chat_id: Chat ID of the message
     :attr msg_id: ID of the message
     :attr sender: Message sender dict
@@ -60,6 +61,7 @@ class TelegramMessage:
 class BotCommand:
     """
     Bot command object.
+
     :attr cmd_name: Slash command that triggers the bot command
     :attr msg: TelegramMessage object to read from
     """
@@ -85,6 +87,7 @@ class BotCommand:
 class CmdHelp(BotCommand):
     """
     Help command that returns list of commands from getMyCommands on /help.
+
     :attr command_list: Optional additional commands to add to /help command
     """
     command_list: List[Dict[str, str]] = None
@@ -105,20 +108,39 @@ class CmdHelp(BotCommand):
         self.bot.send_message(self.msg.chat_id, command_list_string)
 
 
+class CmdStart(BotCommand):
+    """
+    Start command that welcomes users when they send /start
+    """
+    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
+        self.bot = bot
+        self.msg = msg
+        self.cmd_name = "/start"
+        super().__init__()
+
+    def execute(self):
+        self.bot.send_message(self.msg.chat_id, f"Hello {self.msg.sender['first_name']}")
+        self.msg.text = "/help"
+        self.bot.help_command(self.bot, self.msg)
+
+
 @dataclass
 class TelegramBot:
     """
     Telegram bot object.
+
     :attr bot_commands: List of BotCommand to execute
     :attr commands_to_run_on_loop: List of BotCommand to execute every on_loop()
     :attr commands_to_run_on_every_message: List of BotCommand to execute on every message
     :attr help_command: Help command to use
+    :attr start_command: Start command to use
     """
     BotCommand: Callable[[TelegramBot, TelegramMessage], None]
     bot_commands: List[BotCommand] = None
     commands_to_run_on_loop: List[BotCommand] = None
     commands_to_run_on_every_message: List[BotCommand] = None
     help_command: CmdHelp = CmdHelp
+    start_command: CmdStart = CmdStart
 
     def __init__(self, access_token: str):
         if not self.bot_commands:
@@ -127,6 +149,7 @@ class TelegramBot:
             self.commands_to_run_on_loop = []
         if not self.commands_to_run_on_every_message:
             self.commands_to_run_on_every_message = []
+        self.builtin_commands = [self.help_command, self.start_command]
         self.access_token = access_token
         self.api_url = f"https://api.telegram.org/bot{self.access_token}/"
         self.saved_data_path = Path("data.json")
@@ -134,9 +157,10 @@ class TelegramBot:
         self.default_log_format = "<g>{time:MM/DD/YYYY HH:mm:ss}</g> | <lvl>{level}</lvl> | <lvl><b>{message}</b></lvl>"
         self.saved_data = None
 
-    def enable_logging(self, log_level: str = "INFO", log_format: str = None) -> None:
+    def enable_logging(self, log_level: str = "INFO", log_format: str = None):
         """
         Enables logging.
+
         :param log_level: Loguru log level.
         :param log_format: Set a Loguru log format other than default.
         :return: None
@@ -148,6 +172,7 @@ class TelegramBot:
     def send_message(self, chat_id: str, text: str, parse_mode: str = None) -> requests.Response:
         """
         Sends Telegram message.
+
         :param chat_id: Chat ID
         :param text: Message text
         :param parse_mode: Message parsing mode
@@ -162,6 +187,7 @@ class TelegramBot:
     def get_my_commands(self) -> list:
         """
         Sends Telegram message.
+
         :return: List of bot commands
         """
         return requests.get(self.api_url + "getMyCommands").json()
@@ -169,6 +195,7 @@ class TelegramBot:
     def get_updates(self, offset: int = None, allowed_updates: str = None) -> requests.Response:
         """
         Retrieve Telegram updates.
+
         :param offset: ID of update to start from
         :param allowed_updates: Type of update allowed
         :return: Requests response object
@@ -176,10 +203,10 @@ class TelegramBot:
         params = {"offset": offset, "allowed_updates": allowed_updates}
         return requests.get(self.api_url + "getUpdates", params=params)
 
-    def run_commands(self, commands_to_run: List[Callable[[TelegramBot, TelegramMessage], None]],
-                     msg: TelegramMessage) -> None:
+    def run_commands(self, commands_to_run: List[BotCommand], msg: TelegramMessage):
         """
         Run all command functions
+
         :param commands_to_run: List of functions to run
         :param msg: Telegram message object
         :return: None
@@ -197,6 +224,7 @@ class TelegramBot:
     def check_if_update_a_message(update_to_check: dict) -> Union[dict, bool]:
         """
         Check if Telegram update object is a message
+
         :param update_to_check: Update object to check
         :return: Message object or False
         """
@@ -207,9 +235,10 @@ class TelegramBot:
         except KeyError:
             return False
 
-    def save_json_to_file(self, data_to_save: dict, file_to_save: Path = None) -> None:
+    def save_json_to_file(self, data_to_save: dict, file_to_save: Path = None):
         """
         Save JSON data to file
+
         :param data_to_save: Dict to save
         :param file_to_save: Path to file to save
         :return: None
@@ -226,6 +255,7 @@ class TelegramBot:
     def read_json_from_file(self, file_to_read: Path = None) -> dict:
         """
         Read JSON from saved file
+
         :param file_to_read: Path to file to read
         :return: Dict from json
         """
@@ -239,9 +269,10 @@ class TelegramBot:
             self.saved_data = json.load(f)
             return self.saved_data
 
-    def on_loop(self) -> None:
+    def on_loop(self):
         """
         Code to run on each loop
+
         :return: None
         """
         self.run_commands(self.commands_to_run_on_loop, msg=None)
@@ -262,16 +293,17 @@ class TelegramBot:
             logger.debug(f"New message from #{message.chat_id} "
                          f"{message.sender['first_name']} (@{message.sender['username']})")
             if message.is_bot_command:
-                self.help_command(self, message)
+                self.run_commands(self.builtin_commands, message)
                 self.run_commands(self.bot_commands, message)
             else:
                 self.run_commands(self.commands_to_run_on_every_message, message)
         if updates:
             self.save_json_to_file(saved_data)
 
-    def start(self) -> None:
+    def start(self):
         """
         Starts main loop.
+
         :return: None
         """
         logger.info(f"Starting bot <{sys.argv[0].split('/')[-1]}>")
