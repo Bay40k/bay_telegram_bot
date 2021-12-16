@@ -17,6 +17,7 @@ class TelegramMessage:
     :attr chat_id: Chat ID of the message
     :attr msg_id: ID of the message
     :attr sender: Message sender dict
+    :attr username: Message sender's username
     :attr text: Message text
     """
 
@@ -37,6 +38,10 @@ class TelegramMessage:
             self.sender = self.message_dict["from"]
         except KeyError:
             self.sender = None
+        try:
+            self.username = self.sender["username"]
+        except KeyError:
+            self.username = None
         try:
             self.text = self.message_dict["text"]
         except KeyError:
@@ -68,7 +73,7 @@ class BotCommand:
             self.arguments = self.msg.text.split(" ")[1:]
             from_string = ""
             if self.msg.sender:
-                from_string += f" from {self.msg.sender['first_name']} (@{self.msg.sender['username']})"
+                from_string += f" from {self.msg.sender['first_name']} (@{str(self.msg.username)})"
             logger.debug(f"Executing command: '{self.cmd_name} {' '.join(self.arguments)}'" + from_string)
             self.execute()
 
