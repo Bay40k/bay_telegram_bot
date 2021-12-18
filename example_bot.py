@@ -26,13 +26,25 @@ class RadarrCommand(BotCommand, ABC):
 
 class CmdRadarr(RadarrCommand):
     """
-    /radarr <IMDB ID> | remove <IMDB ID> - Adds or removes a movie from to/from Radarr
+    /radarr <IMDB ID> | queue | remove <IMDB ID> - Adds or removes a movie from to/from Radarr
     """
     def __init__(self, bot: TelegramBot, msg: TelegramMessage):
         self.bot = bot
         self.msg = msg
         self.cmd_name = "/radarr"
         super().__init__()
+
+    def get_queue(self):
+        try:
+            queue_records = self.radarr.get_queue()["records"]
+        except TypeError:
+            queue_records = []
+        dls = {}
+        for dl in queue_records:
+            if dl["status"] == "downloading":
+                print(dl['title'])
+                dls.update({"title": dl["title"], "time left HH:MM:SS": dl["timeleft"], "status": dl["status"]})
+        self.bot.send_message(self.msg.chat_id, json.dumps(dls, indent=4))
 
     def remove_movie(self):
         try:
@@ -67,6 +79,10 @@ class CmdRadarr(RadarrCommand):
             self.remove_movie()
             return None
 
+        if query.lower() == "queue":
+            self.get_queue()
+            return None
+
         movie_result = self.radarr.lookup_movie_by_imdb_id(query)
         if not movie_result:
             self.bot.send_message(self.msg.chat_id, f"No result found for: {query}")
@@ -79,7 +95,6 @@ class CmdRadarr(RadarrCommand):
                 return None
         except KeyError:
             pass
-
         self.bot.send_message(self.msg.chat_id, f"Added movie: {add_movie['title']} ({add_movie['year']})")
 
 
@@ -130,7 +145,8 @@ class SonarrCommand(BotCommand, ABC):
 
 class CmdSonarr(SonarrCommand):
     """
-    /sonarr <TVDB ID> | remove <TVDB ID> | monitor/unmonitor <TVDB ID> <season> - Adds/removes a series or monitor/unmonitor a series' season
+    /sonarr <TVDB ID> | queue | remove <TVDB ID> | monitor/unmonitor <TVDB ID> <season>
+    - Adds/removes a series or monitor/unmonitor a series' season
     """
     def __init__(self, bot: TelegramBot, msg: TelegramMessage):
         self.bot = bot
@@ -213,10 +229,11 @@ class CmdSonarr(SonarrCommand):
             queue_records = self.sonarr.get_queue()["records"]
         except TypeError:
             queue_records = []
-        dls = []
+        dls = {}
         for dl in queue_records:
-            if dl["status"] not in ["completed", "failed"]:
-                dls += {"title": dl["title"], "time left": dl["timeleft"], "status": dl["status"]}
+            if dl["status"] == "downloading":
+                print(dl['title'])
+                dls.update({"title": dl["title"], "time left HH:MM:SS": dl["timeleft"], "status": dl["status"]})
         self.bot.send_message(self.msg.chat_id, json.dumps(dls, indent=4))
 
     def execute(self):
@@ -263,7 +280,7 @@ class CmdSonarr(SonarrCommand):
             self.bot.send_message(self.msg.chat_id, f"No result found for: {query}")
             return None
         show_id = show_result['tvdbId']
-        add_show = self.sonarr.add_series(show_id, quality_profile_id=6, root_dir="/data/media/TV_Shows")
+        add_show = self.sonarr.add_series(show_id, quality_profile_id=6, root_dir="<root_dir>")
         try:
             if add_show[0]["errorMessage"]:
                 self.bot.send_message(self.msg.chat_id, add_show[0]["errorMessage"])
@@ -272,7 +289,7 @@ class CmdSonarr(SonarrCommand):
             pass
         # Optional: Unmonitor all seasons after adding
         self.unmonitor_all_seasons(show_id)
-        self.bot.send_message(self.msg.chat_id, f"Added series: {add_show['title']} ({add_show['year']})")
+        self.bot.send_message(self.msg.chat_id, f"Added show: {add_show['title']} ({add_show['year']})")
 
 
 class CmdFindShows(SonarrCommand):
