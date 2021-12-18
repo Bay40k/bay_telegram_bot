@@ -166,8 +166,7 @@ class CmdSonarr(SonarrCommand):
             return None
         except TypeError:
             return None
-        if not series:
-            return None
+
         self.sonarr.upd_series(series)
         if sendmsg:
             self.bot.send_message(self.msg.chat_id,
