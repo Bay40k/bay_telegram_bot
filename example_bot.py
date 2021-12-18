@@ -424,8 +424,10 @@ def main():
 
     example_bot.bot_commands = [
         CmdFindMovies,
+        CmdFindShows,
         CmdKanye,
         CmdRadarr,
+        CmdSonarr,
         CmdWikipedia,
         CmdYouTubeDL,
     ]
