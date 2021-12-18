@@ -1,7 +1,7 @@
 from abc import ABC
 from dataclasses import dataclass
 from pathlib import Path
-from pyarr import RadarrAPI
+from pyarr import RadarrAPI, SonarrAPI
 from pyrogram import Client
 from telegram_bot import BotCommand, TelegramMessage, TelegramBot
 import pandas as pd
@@ -26,7 +26,7 @@ class RadarrCommand(BotCommand, ABC):
 
 class CmdRadarr(RadarrCommand):
     """
-    /radarr <IMDB ID> | remove <IMDB ID> - Adds or removes a movie from Radarr
+    /radarr <IMDB ID> | remove <IMDB ID> - Adds or removes a movie from to/from Radarr
     """
     def __init__(self, bot: TelegramBot, msg: TelegramMessage):
         self.bot = bot
@@ -116,6 +116,201 @@ class CmdFindMovies(RadarrCommand):
         self.bot.send_message(self.msg.chat_id,
                               f"```{sorted_results_data.to_string(max_colwidth=1)}```", parse_mode="MarkdownV2")
 
+@dataclass
+class SonarrCommand(BotCommand, ABC):
+    sonarr_url: str
+    sonarr_api_key: str
+
+    def __init__(self):
+        self.sonarr_url = "<sonarr_url>"
+        self.sonarr_api_key = "<sonarr_api_key>"
+        self.sonarr = SonarrAPI(self.sonarr_url, self.sonarr_api_key)
+        super().__init__()
+
+
+class CmdSonarr(SonarrCommand):
+    """
+    /sonarr <TVDB ID> | remove <TVDB ID> | monitor/unmonitor <TVDB ID> <season> - Adds/removes a series or monitor/unmonitor a series' season
+    """
+    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
+        self.bot = bot
+        self.msg = msg
+        self.cmd_name = "/sonarr"
+        super().__init__()
+
+    def get_series_from_tvdb_id(self, tvdb_id: int) -> dict:
+        try:
+            tvdb_id = int(tvdb_id)
+        except ValueError:
+            self.bot.send_message(self.msg.chat_id, "TVDB ID must be int")
+            return None
+        series = {}
+        for s in self.sonarr.get_series():
+            if s['tvdbId'] == tvdb_id:
+                series = s
+        if not series:
+            self.bot.send_message(self.msg.chat_id, "Series not found")
+            return None
+        return series
+
+    def update_show_season_monitored_status(self, tvdb_id: int, season: int, monitored: bool, sendmsg: bool = True):
+        series = self.get_series_from_tvdb_id(tvdb_id)
+        if not series:
+            return None
+        show_id = series['id']
+        try:
+            series = self.sonarr.get_series(show_id)
+            series['seasons'][season]['monitored'] = monitored
+        except IndexError:
+            self.bot.send_message(self.msg.chat_id, "Season not found")
+            return None
+        except TypeError:
+            return None
+        if not series:
+            return None
+        self.sonarr.upd_series(series)
+        if sendmsg:
+            self.bot.send_message(self.msg.chat_id,
+                                  f"Set {series['title']} ({series['year']}) "
+                                  f"season {season} monitored status to {monitored}")
+
+    def unmonitor_all_seasons(self, tvdb_id: int):
+        series = self.get_series_from_tvdb_id(tvdb_id)
+        if not series:
+            return None
+        for season in self.sonarr.lookup_series_by_tvdb_id(series['tvdbId'])[0]['seasons']:
+            self.update_show_season_monitored_status(tvdb_id, season['seasonNumber'], False, sendmsg=False)
+
+    def remove_show(self):
+        try:
+            query = self.arguments[1]
+        except IndexError:
+            self.bot.send_message(self.msg.chat_id, "No TVDB ID given")
+            return None
+
+        show_result = self.sonarr.lookup_series_by_tvdb_id(query)[0]
+        series = self.get_series_from_tvdb_id(show_result['tvdbId'])
+        if not series:
+            return None
+        show_id = series['id']
+
+        del_series = None
+        try:
+            del_series = self.sonarr.del_series(show_id, delete_files=True)
+        except json.JSONDecodeError:
+            pass
+        try:
+            if del_series['message']:
+                self.bot.send_message(self.msg.chat_id, del_series['message'])
+                return None
+        except KeyError:
+            pass
+        show_title = show_result['title']
+        show_year = show_result['year']
+        self.bot.send_message(self.msg.chat_id, f"Removed show: {show_title} ({show_year})")
+
+    def get_queue(self):
+        try:
+            queue_records = self.sonarr.get_queue()["records"]
+        except TypeError:
+            queue_records = []
+        dls = []
+        for dl in queue_records:
+            if dl["status"] not in ["completed", "failed"]:
+                dls += {"title": dl["title"], "time left": dl["timeleft"], "status": dl["status"]}
+        self.bot.send_message(self.msg.chat_id, json.dumps(dls, indent=4))
+
+    def execute(self):
+        try:
+            query = self.arguments[0]
+        except IndexError:
+            self.bot.send_message(self.msg.chat_id, "No query given")
+            return None
+
+        if query.lower() == "remove":
+            self.remove_show()
+            return None
+
+        if query.lower() == "queue":
+            self.get_queue()
+            return None
+
+        def get_season():
+            try:
+                s = self.arguments[2]
+            except IndexError:
+                self.bot.send_message(self.msg.chat_id, "No season specified")
+                return None
+            try:
+                int(s)
+            except ValueError:
+                self.bot.send_message(self.msg.chat_id, "Season must be int")
+                return None
+            return int(s)
+
+        if query.lower() == "unmonitor":
+            season = get_season()
+            if not season:
+                return None
+            self.update_show_season_monitored_status(self.arguments[1], season, False)
+            return None
+
+        if query.lower() == "monitor":
+            season = get_season()
+            if not season:
+                return None
+            self.update_show_season_monitored_status(self.arguments[1], season, True)
+            return None
+
+        show_result = self.sonarr.lookup_series_by_tvdb_id(query)[0]
+        if not show_result:
+            self.bot.send_message(self.msg.chat_id, f"No result found for: {query}")
+            return None
+        show_id = show_result['tvdbId']
+        add_show = self.sonarr.add_series(show_id, quality_profile_id=6, root_dir="/data/media/TV_Shows")
+        try:
+            if add_show[0]["errorMessage"]:
+                self.bot.send_message(self.msg.chat_id, add_show[0]["errorMessage"])
+                return None
+        except KeyError:
+            pass
+        # Optional: Unmonitor all seasons after adding
+        self.unmonitor_all_seasons(show_id)
+        self.bot.send_message(self.msg.chat_id, f"Added series: {add_show['title']} ({add_show['year']})")
+
+
+class CmdFindShows(SonarrCommand):
+    """
+    /find_shows <search term> - Returns a table of shows and TVDB IDs matching search term
+    """
+    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
+        self.bot = bot
+        self.msg = msg
+        self.cmd_name = "/find_shows"
+        super().__init__()
+
+    def execute(self):
+        query = " ".join(self.arguments)
+        if not query:
+            self.bot.send_message(self.msg.chat_id, "No query given")
+            return None
+        show_search = self.sonarr.lookup_series(query)
+        if not show_search:
+            self.bot.send_message(self.msg.chat_id, f"No result found for: {query}")
+            return None
+        results = []
+        for show in show_search:
+            try:
+                tvdb_id = str(show['tvdbId'])
+            except KeyError:
+                tvdb_id = "<none found>"
+            results += [(f"{show['title']}", f"{str(show['year'])}", f"{tvdb_id}")]
+        results_data = pd.DataFrame(results[:20])
+        results_data.columns = ["Show Name", "Year", "TVDB ID"]
+        sorted_results_data = results_data.sort_values(by=['Year'], ascending=False, ignore_index=True)
+        pd.set_option('display.colheader_justify', 'center')
+        self.bot.send_message(self.msg.chat_id,
+                              f"```{sorted_results_data.to_string(max_colwidth=1)}```", parse_mode="MarkdownV2")
 
 class CmdKanye(BotCommand):
     """
