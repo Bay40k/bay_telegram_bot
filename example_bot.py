@@ -247,19 +247,16 @@ class CmdSonarr(SonarrCommand):
                 return None
             return int(s)
 
-        if query.lower() == "unmonitor":
+        if query.lower() == "monitor" or "unmonitor":
             season = get_season()
             if not season:
                 return None
-            self.update_show_season_monitored_status(self.arguments[1], season, False)
-            return None
+            if query.lower() == "monitor":
+                set_monitor = True
+            else:
+                set_monitor = False
 
-        if query.lower() == "monitor":
-            season = get_season()
-            if not season:
-                return None
-            self.update_show_season_monitored_status(self.arguments[1], season, True)
-            return None
+            self.update_show_season_monitored_status(self.arguments[1], season, set_monitor)
 
         show_result = self.sonarr.lookup_series_by_tvdb_id(query)[0]
         if not show_result:
