@@ -39,11 +39,11 @@ class CmdRadarr(RadarrCommand):
             queue_records = self.radarr.get_queue()["records"]
         except TypeError:
             queue_records = []
-        dls = {}
+        dls = []
         for dl in queue_records:
             if dl["status"] == "downloading":
                 print(dl['title'])
-                dls.update({"title": dl["title"], "time left HH:MM:SS": dl["timeleft"], "status": dl["status"]})
+                dls.append({"title": dl["title"], "time left HH:MM:SS": dl["timeleft"], "status": dl["status"]})
         self.bot.send_message(self.msg.chat_id, json.dumps(dls, indent=4))
 
     def remove_movie(self):
@@ -229,11 +229,11 @@ class CmdSonarr(SonarrCommand):
             queue_records = self.sonarr.get_queue()["records"]
         except TypeError:
             queue_records = []
-        dls = {}
+        dls = []
         for dl in queue_records:
             if dl["status"] == "downloading":
                 print(dl['title'])
-                dls.update({"title": dl["title"], "time left HH:MM:SS": dl["timeleft"], "status": dl["status"]})
+                dls.append({"title": dl["title"], "time left HH:MM:SS": dl["timeleft"], "status": dl["status"]})
         self.bot.send_message(self.msg.chat_id, json.dumps(dls, indent=4))
 
     def execute(self):
