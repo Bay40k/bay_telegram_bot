@@ -325,6 +325,7 @@ class CmdFindShows(SonarrCommand):
         self.bot.send_message(self.msg.chat_id,
                               f"```{sorted_results_data.to_string(max_colwidth=1)}```", parse_mode="MarkdownV2")
 
+
 class CmdKanye(BotCommand):
     """
     /kanye - Returns a Kanye quote
@@ -343,23 +344,42 @@ class CmdKanye(BotCommand):
 
 class CmdYouTubeDL(BotCommand):
     """
-    /youtube_dl <video URL> - Sends a video file from any website supported by youtube-dl
+    /ytdl <video URL> | mp3 <video URL> - Sends a video or mp3 file from any website supported by youtube-dl
     """
     def __init__(self, bot: TelegramBot, msg: TelegramMessage):
         self.bot = bot
         self.msg = msg
-        self.cmd_name = "/youtube_dl"
-        self.download_path = Path(".ignore/downloads").resolve()
+        self.cmd_name = "/ytdl"
+        self.download_path = Path("./downloads").resolve()
         super().__init__()
 
     def execute(self):
+        getmp3 = False
         try:
             link = self.arguments[0]
+            if link.lower() == "mp3":
+                getmp3 = True
+                link = self.arguments[1]
         except IndexError:
             self.bot.send_message(self.msg.chat_id, "No link given")
             return None
-        ydl = youtube_dl.YoutubeDL({'outtmpl': f'{self.download_path}/%(id)s.%(ext)s'})
-        with ydl:
+
+        ydl_opts = {
+            'outtmpl': f'{self.download_path}/%(id)s.%(ext)s'
+        }
+
+        if getmp3:
+            ydl_opts.update({
+                # 'ffmpeg_location': '',
+                'format'        : 'bestaudio/best',
+                'postprocessors': [{
+                    'key'             : 'FFmpegExtractAudio',
+                    'preferredcodec'  : 'mp3',
+                    'preferredquality': '192',
+                }]
+            })
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             result = ydl.extract_info(link, download=True)
 
         video_file_path = [Path(f).resolve() for f in self.download_path.iterdir()][0]
