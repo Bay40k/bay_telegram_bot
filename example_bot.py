@@ -1,15 +1,17 @@
 from abc import ABC
 from dataclasses import dataclass
 from pathlib import Path
+
+import yt_dlp
 from pyarr import RadarrAPI, SonarrAPI
+from pykeyboard import InlineKeyboard
 from pyrogram import Client
-from telegram_bot import BotCommand, TelegramMessage, TelegramBot
-import pandas as pd
+from pyrogram.types import InlineKeyboardButton
+from telegram_bot import BotCommand, TelegramMessage, TelegramBot, TelegramCallbackQuery
 import json
 import os
 import requests
 import wikipedia
-import youtube_dl
 
 
 @dataclass
@@ -95,7 +97,8 @@ class CmdRadarr(RadarrCommand):
                 return None
         except KeyError:
             pass
-        self.bot.send_message(self.msg.chat_id, f"Added movie: {add_movie['title']} ({add_movie['year']})")
+        self.bot.send_message(self.msg.chat_id,
+                              f"Added movie: {add_movie['title']} ({add_movie['year']}) ID: {add_movie['imdbId']}")
 
 
 class CmdFindMovies(RadarrCommand):
@@ -124,12 +127,28 @@ class CmdFindMovies(RadarrCommand):
             except KeyError:
                 imdb_id = "<none found>"
             results += [(f"{movie['title']}", f"{movie['year']}", f"{imdb_id}")]
-        results_data = pd.DataFrame(results)
-        results_data.columns = ["Movie Name", "Year", "IMDB ID"]
-        sorted_results_data = results_data.sort_values(by=['Year'], ascending=False, ignore_index=True)
-        pd.set_option('display.colheader_justify', 'center')
-        self.bot.send_message(self.msg.chat_id,
-                              f"```{sorted_results_data.to_string(max_colwidth=1)}```", parse_mode="MarkdownV2")
+        keyboard = InlineKeyboard(row_width=3)
+        for i, movie in enumerate(results):
+            movie_name = movie[0]
+            movie_year = movie[1]
+            movie_id = movie[2]
+            cmd_string = f"/radarr {movie_id}"
+            keyboard.row(InlineKeyboardButton(f"{i}. {movie_name} ({movie_year})", callback_data=cmd_string))
+        with self.bot.pyrogram_bot:
+            self.bot.pyrogram_bot.send_message(self.msg.chat_id, "Results:", reply_markup=keyboard)
+
+
+class OnCallbackQuery:
+    def __init__(self, bot: TelegramBot, callback_query: TelegramCallbackQuery):
+        if "/radarr" or "/sonarr" in callback_query.data:
+            msg = callback_query.message
+            msg.is_bot_command = True
+            msg.text = callback_query.data
+            if "/radarr" in callback_query.data:
+                CmdRadarr(bot, msg)
+            else:
+                CmdSonarr(bot, msg)
+
 
 @dataclass
 class SonarrCommand(BotCommand, ABC):
@@ -251,23 +270,18 @@ class CmdSonarr(SonarrCommand):
             self.get_queue()
             return None
 
-        def get_season():
+        if query.lower() in ["monitor", "unmonitor"]:
             try:
-                s = self.arguments[2]
+                season = self.arguments[2]
             except IndexError:
                 self.bot.send_message(self.msg.chat_id, "No season specified")
                 return None
             try:
-                int(s)
+                int(season)
             except ValueError:
                 self.bot.send_message(self.msg.chat_id, "Season must be int")
                 return None
-            return int(s)
-
-        if query.lower() == "monitor" or "unmonitor":
-            season = get_season()
-            if not season:
-                return None
+            season = int(season)
             if query.lower() == "monitor":
                 set_monitor = True
             else:
@@ -289,7 +303,8 @@ class CmdSonarr(SonarrCommand):
             pass
         # Optional: Unmonitor all seasons after adding
         self.unmonitor_all_seasons(show_id)
-        self.bot.send_message(self.msg.chat_id, f"Added show: {add_show['title']} ({add_show['year']})")
+        self.bot.send_message(self.msg.chat_id,
+                              f"Added show: {add_show['title']} ({add_show['year']}) ID: {add_show['tvdbId']}")
 
 
 class CmdFindShows(SonarrCommand):
@@ -318,12 +333,15 @@ class CmdFindShows(SonarrCommand):
             except KeyError:
                 tvdb_id = "<none found>"
             results += [(f"{show['title']}", f"{str(show['year'])}", f"{tvdb_id}")]
-        results_data = pd.DataFrame(results[:20])
-        results_data.columns = ["Show Name", "Year", "TVDB ID"]
-        sorted_results_data = results_data.sort_values(by=['Year'], ascending=False, ignore_index=True)
-        pd.set_option('display.colheader_justify', 'center')
-        self.bot.send_message(self.msg.chat_id,
-                              f"```{sorted_results_data.to_string(max_colwidth=1)}```", parse_mode="MarkdownV2")
+        keyboard = InlineKeyboard(row_width=3)
+        for i, show in enumerate(results):
+            show_name = show[0]
+            show_year = show[1]
+            show_id = show[2]
+            cmd_string = f"/sonarr {show_id}"
+            keyboard.row(InlineKeyboardButton(f"{i}. {show_name} ({show_year})", callback_data=cmd_string))
+        with self.bot.pyrogram_bot:
+            self.bot.pyrogram_bot.send_message(self.msg.chat_id, "Results:", reply_markup=keyboard)
 
 
 class CmdKanye(BotCommand):
@@ -420,6 +438,7 @@ class CmdWikipedia(BotCommand):
 class ExampleBot(TelegramBot):
 
     def __init__(self, access_token: str, api_id: int, api_hash: str):
+        self.callback_query_handler = OnCallbackQuery
         super().__init__(access_token)
         self.pyrogram_client = Client("example_bot_MTProto", api_id, api_hash, phone_number="<phone_number>")
         self.pyrogram_bot = Client("example_bot", api_id, api_hash, bot_token=access_token)
