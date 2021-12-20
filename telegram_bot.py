@@ -11,14 +11,74 @@ from typing import Callable, Dict, List, Union
 from loguru import logger
 
 
+class TelegramUser:
+    """
+    Telegram user object.
+
+    :attr user_id: ID of the user
+    :attr is_bot: If user is a bot
+    :attr first_name: User's first name
+    :attr username: User's username
+    """
+
+    def __init__(self, message_dict):
+        self.message_dict = message_dict
+        try:
+            self.user_id = int(self.message_dict["id"])
+        except KeyError:
+            self.user_id = None
+        try:
+            self.is_bot = self.message_dict["is_bot"]
+        except KeyError:
+            self.is_bot = None
+        try:
+            self.first_name = self.message_dict["first_name"]
+        except KeyError:
+            self.first_name = None
+        try:
+            self.username = self.message_dict["username"]
+        except KeyError:
+            self.username = None
+
+
+class TelegramCallbackQuery:
+    """
+    Telegram CallbackQuery object.
+
+    :attr callback_query_dict: callback_query dict from update
+    :attr callback_id: ID of the CallbackQuery
+    :attr sender: User object of the sender
+    :attr message: Message attached to the callback_query
+    :attr data: Callback data
+    """
+
+    def __init__(self, callback_query_dict):
+        self.callback_query_dict = callback_query_dict
+        try:
+            self.callback_id = int(self.callback_query_dict["id"])
+        except KeyError:
+            self.callback_id = None
+        try:
+            self.sender = TelegramUser(self.callback_query_dict["from"])
+        except KeyError:
+            self.sender = None
+        try:
+            self.message = TelegramMessage(self.callback_query_dict["message"])
+        except KeyError:
+            self.message = None
+        try:
+            self.data = self.callback_query_dict["data"]
+        except KeyError:
+            self.data = None
+
+
 class TelegramMessage:
     """
     Telegram message object.
 
     :attr chat_id: Chat ID of the message
     :attr msg_id: ID of the message
-    :attr sender: Message sender dict
-    :attr username: Message sender's username
+    :attr sender: Message sender User
     :attr text: Message text
     """
 
@@ -36,13 +96,9 @@ class TelegramMessage:
         except KeyError:
             self.chat_id = None
         try:
-            self.sender = self.message_dict["from"]
+            self.sender = TelegramUser(self.message_dict["from"])
         except KeyError:
             self.sender = None
-        try:
-            self.username = self.sender["username"]
-        except KeyError:
-            self.username = None
         try:
             self.text = self.message_dict["text"]
         except KeyError:
@@ -75,7 +131,7 @@ class BotCommand:
             self.arguments = self.msg.text.split(" ")[1:]
             from_string = ""
             if self.msg.sender:
-                from_string += f" from {self.msg.sender['first_name']} (@{str(self.msg.username)})"
+                from_string += f" from {self.msg.sender.first_name} (@{str(self.msg.sender.username)})"
             logger.debug(f"Executing command: '{self.cmd_name} {' '.join(self.arguments)}'" + from_string)
             self.execute()
 
@@ -141,6 +197,7 @@ class TelegramBot:
     commands_to_run_on_every_message: List[BotCommand] = None
     help_command: CmdHelp = CmdHelp
     start_command: CmdStart = CmdStart
+    callback_query_handler: Callable[[TelegramBot, TelegramCallbackQuery], None] = None
 
     def __init__(self, access_token: str):
         if not self.bot_commands:
@@ -235,6 +292,21 @@ class TelegramBot:
         except KeyError:
             return False
 
+    @staticmethod
+    def check_if_update_a_callback_query(update_to_check: dict) -> Union[dict, bool]:
+        """
+        Check if Telegram update object is a message
+
+        :param update_to_check: Update object to check
+        :return: Message object or False
+        """
+        try:
+            return update_to_check["callback_query"]
+
+        # if not a CallbackQuery
+        except KeyError:
+            return False
+
     def save_json_to_file(self, data_to_save: dict, file_to_save: Path = None):
         """
         Save JSON data to file
@@ -283,15 +355,23 @@ class TelegramBot:
 
         updates = self.get_updates(current_update_id, allowed_updates="message").json()["result"]
         for update in updates:
+            # print(json.dumps(update, indent=4))
             # set current_update_id to latest update_id
             saved_data["current_update_id"] = update["update_id"] + 1
             message = self.check_if_update_a_message(update)
+            callbackquery = self.check_if_update_a_callback_query(update)
+
+            if callbackquery:
+                callbackquery = TelegramCallbackQuery(callbackquery)
+                if self.callback_query_handler:
+                    self.callback_query_handler(self, callbackquery)
+                break
 
             if not message:
                 break
             message = TelegramMessage(message)
             logger.debug(f"New message from #{message.chat_id} "
-                         f"{message.sender['first_name']} (@{str(message.username)})")
+                         f"{message.sender.first_name} (@{str(message.sender.username)})")
             if message.is_bot_command:
                 self.run_commands(self.builtin_commands, message)
                 self.run_commands(self.bot_commands, message)
