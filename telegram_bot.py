@@ -21,22 +21,25 @@ class TelegramUser:
     :attr username: User's username
     """
 
-    def __init__(self, message_dict):
-        self.message_dict = message_dict
+    def __init__(self, user_dict: dict):
+        """
+        :param user_dict: User dictionary (usually ["message"]["from"])
+        """
+        self.user_dict = user_dict
         try:
-            self.user_id = int(self.message_dict["id"])
+            self.user_id = int(self.user_dict["id"])
         except KeyError:
             self.user_id = None
         try:
-            self.is_bot = self.message_dict["is_bot"]
+            self.is_bot = self.user_dict["is_bot"]
         except KeyError:
             self.is_bot = None
         try:
-            self.first_name = self.message_dict["first_name"]
+            self.first_name = self.user_dict["first_name"]
         except KeyError:
             self.first_name = None
         try:
-            self.username = self.message_dict["username"]
+            self.username = self.user_dict["username"]
         except KeyError:
             self.username = None
 
@@ -45,14 +48,16 @@ class TelegramCallbackQuery:
     """
     Telegram CallbackQuery object.
 
-    :attr callback_query_dict: callback_query dict from update
     :attr callback_id: ID of the CallbackQuery
     :attr sender: User object of the sender
     :attr message: Message attached to the callback_query
     :attr data: Callback data
     """
 
-    def __init__(self, callback_query_dict):
+    def __init__(self, callback_query_dict: dict):
+        """
+        :param callback_query_dict: Callback query dictionary from update
+        """
         self.callback_query_dict = callback_query_dict
         try:
             self.callback_id = int(self.callback_query_dict["id"])
@@ -70,6 +75,34 @@ class TelegramCallbackQuery:
             self.data = self.callback_query_dict["data"]
         except KeyError:
             self.data = None
+
+
+class TelegramUpdate:
+    """
+    Telegram update object.
+
+    :attr update_id: ID of the update
+    :attr callback_query: CallbackQuery object if it exists
+    :attr message: Message attached to the update
+    """
+
+    def __init__(self, update_dict: dict):
+        """
+        :param update_dict: Update object dict
+        """
+        self.update_dict = update_dict
+        try:
+            self.update_id = int(self.update_dict["update_id"])
+        except KeyError:
+            self.update_id = None
+        try:
+            self.message = TelegramMessage(self.update_dict["message"])
+        except KeyError:
+            self.message = None
+        try:
+            self.callback_query = TelegramCallbackQuery(self.update_dict["callback_query"])
+        except KeyError:
+            self.callback_query = None
 
 
 class TelegramMessage:
@@ -249,7 +282,7 @@ class TelegramBot:
         """
         return requests.get(self.api_url + "getMyCommands").json()
 
-    def get_updates(self, offset: int = None, allowed_updates: str = None) -> requests.Response:
+    def get_updates(self, offset: int = None, allowed_updates: str = None) -> List[TelegramUpdate]:
         """
         Retrieve Telegram updates.
 
@@ -258,7 +291,11 @@ class TelegramBot:
         :return: Requests response object
         """
         params = {"offset": offset, "allowed_updates": allowed_updates}
-        return requests.get(self.api_url + "getUpdates", params=params)
+        raw_updates = requests.get(self.api_url + "getUpdates", params=params).json()["result"]
+        updates = []
+        for update in raw_updates:
+            updates.append(TelegramUpdate(update))
+        return updates
 
     def run_commands(self, commands_to_run: List[BotCommand], msg: TelegramMessage):
         """
@@ -276,36 +313,6 @@ class TelegramBot:
                 self.send_message(msg.chat_id,
                                   f"There was an error running the command:\n{e}")
             raise e
-
-    @staticmethod
-    def check_if_update_a_message(update_to_check: dict) -> Union[dict, bool]:
-        """
-        Check if Telegram update object is a message
-
-        :param update_to_check: Update object to check
-        :return: Message object or False
-        """
-        try:
-            return update_to_check["message"]
-
-        # if not a message
-        except KeyError:
-            return False
-
-    @staticmethod
-    def check_if_update_a_callback_query(update_to_check: dict) -> Union[dict, bool]:
-        """
-        Check if Telegram update object is a message
-
-        :param update_to_check: Update object to check
-        :return: Message object or False
-        """
-        try:
-            return update_to_check["callback_query"]
-
-        # if not a CallbackQuery
-        except KeyError:
-            return False
 
     def save_json_to_file(self, data_to_save: dict, file_to_save: Path = None):
         """
@@ -341,6 +348,28 @@ class TelegramBot:
             self.saved_data = json.load(f)
             return self.saved_data
 
+    def on_update(self, update: TelegramUpdate):
+        # print(json.dumps(update, indent=4))
+        # set current_update_id to latest update_id
+        self.saved_data["current_update_id"] = update.update_id + 1
+
+        if update.callback_query:
+            if self.callback_query_handler:
+                self.callback_query_handler(self, update.callback_query)
+            return None
+
+        if not update.message:
+            return None
+
+        message = update.message
+        logger.debug(f"New message from #{message.chat_id} "
+                     f"{message.sender.first_name} (@{str(message.sender.username)})")
+        if message.is_bot_command:
+            self.run_commands(self.builtin_commands, message)
+            self.run_commands(self.bot_commands, message)
+        else:
+            self.run_commands(self.commands_to_run_on_every_message, message)
+
     def on_loop(self):
         """
         Code to run on each loop
@@ -353,30 +382,10 @@ class TelegramBot:
         current_update_id = saved_data["current_update_id"]
         logger.info(f"Current update ID: {current_update_id}")
 
-        updates = self.get_updates(current_update_id, allowed_updates="message").json()["result"]
+        updates = self.get_updates(current_update_id, allowed_updates="message")
         for update in updates:
-            # print(json.dumps(update, indent=4))
-            # set current_update_id to latest update_id
-            saved_data["current_update_id"] = update["update_id"] + 1
-            message = self.check_if_update_a_message(update)
-            callbackquery = self.check_if_update_a_callback_query(update)
+            self.on_update(update)
 
-            if callbackquery:
-                callbackquery = TelegramCallbackQuery(callbackquery)
-                if self.callback_query_handler:
-                    self.callback_query_handler(self, callbackquery)
-                break
-
-            if not message:
-                break
-            message = TelegramMessage(message)
-            logger.debug(f"New message from #{message.chat_id} "
-                         f"{message.sender.first_name} (@{str(message.sender.username)})")
-            if message.is_bot_command:
-                self.run_commands(self.builtin_commands, message)
-                self.run_commands(self.bot_commands, message)
-            else:
-                self.run_commands(self.commands_to_run_on_every_message, message)
         if updates:
             self.save_json_to_file(saved_data)
 
