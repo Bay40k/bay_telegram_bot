@@ -8,10 +8,11 @@ import time
 import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional
 from loguru import logger
 
 
+@dataclass
 class TelegramUser:
     """
     Telegram user object.
@@ -21,30 +22,31 @@ class TelegramUser:
     :attr first_name: User's first name
     :attr username: User's username
     """
+    user_id: Optional[int] = None
+    is_bot: Optional[bool] = None
+    first_name: Optional[str] = None
+    username: Optional[str] = None
 
     def __init__(self, user_dict: dict):
         """
         :param user_dict: User dictionary (usually ["message"]["from"])
         """
-        self.user_dict = user_dict
-        try:
-            self.user_id = int(self.user_dict["id"])
-        except KeyError:
-            self.user_id = None
-        try:
-            self.is_bot = self.user_dict["is_bot"]
-        except KeyError:
-            self.is_bot = None
-        try:
-            self.first_name = self.user_dict["first_name"]
-        except KeyError:
-            self.first_name = None
-        try:
-            self.username = self.user_dict["username"]
-        except KeyError:
-            self.username = None
+        attributes = {
+            "user_id:": "id",
+            "is_bot": "is_bot",
+            "first_name": "first_name",
+            "username": "username"
+        }
+        for key in attributes:
+            try:
+                setattr(self, key, user_dict[attributes[key]])
+            except KeyError:
+                setattr(self, key, None)
+        if self.user_id:
+            self.user_id = int(self.user_id)
 
 
+@dataclass
 class TelegramCallbackQuery:
     """
     Telegram CallbackQuery object.
@@ -54,30 +56,35 @@ class TelegramCallbackQuery:
     :attr message: Message attached to the callback_query
     :attr data: Callback data
     """
+    callback_id: Optional[int] = None
+    sender: Optional[TelegramUser] = None
+    message: Optional[TelegramMessage] = None
+    data: Optional[str] = None
 
     def __init__(self, callback_query_dict: dict):
         """
         :param callback_query_dict: Callback query dictionary from update
         """
-        self.callback_query_dict = callback_query_dict
-        try:
-            self.callback_id = int(self.callback_query_dict["id"])
-        except KeyError:
-            self.callback_id = None
-        try:
-            self.sender = TelegramUser(self.callback_query_dict["from"])
-        except KeyError:
-            self.sender = None
-        try:
-            self.message = TelegramMessage(self.callback_query_dict["message"])
-        except KeyError:
-            self.message = None
-        try:
-            self.data = self.callback_query_dict["data"]
-        except KeyError:
-            self.data = None
+        attributes = {
+            "callback_id:": "id",
+            "sender": "from",
+            "message": "message",
+            "data": "data"
+        }
+        for key in attributes:
+            try:
+                setattr(self, key, callback_query_dict[attributes[key]])
+            except KeyError:
+                setattr(self, key, None)
+        if self.callback_id:
+            self.callback_id = int(self.callback_id)
+        if self.sender:
+            self.sender = TelegramUser(self.sender)
+        if self.message:
+            self.message = TelegramMessage(self.message)
 
 
+@dataclass
 class TelegramUpdate:
     """
     Telegram update object.
@@ -86,60 +93,75 @@ class TelegramUpdate:
     :attr callback_query: CallbackQuery object if it exists
     :attr message: Message attached to the update
     """
+    update_id: Optional[int] = None
+    message: Optional[TelegramMessage] = None
+    callback_query: Optional[TelegramCallbackQuery] = None
 
     def __init__(self, update_dict: dict):
         """
         :param update_dict: Update object dict
         """
-        self.update_dict = update_dict
-        try:
-            self.update_id = int(self.update_dict["update_id"])
-        except KeyError:
-            self.update_id = None
-        try:
-            self.message = TelegramMessage(self.update_dict["message"])
-        except KeyError:
-            self.message = None
-        try:
-            self.callback_query = TelegramCallbackQuery(self.update_dict["callback_query"])
-        except KeyError:
-            self.callback_query = None
+        attributes = {
+            "update_id": "update_id",
+            "message": "message",
+            "callback_query": "callback_query"
+        }
+        for key in attributes:
+            try:
+                setattr(self, key, update_dict[attributes[key]])
+            except KeyError:
+                setattr(self, key, None)
+        if self.update_id:
+            self.callback_id = int(self.update_id)
+        if self.message:
+            self.message = TelegramMessage(self.message)
+        if self.callback_query:
+            self.sender = TelegramCallbackQuery(self.callback_query)
 
 
+@dataclass
 class TelegramMessage:
     """
     Telegram message object.
 
+    :attr is_bot_comand: Bool of if message is bot command
     :attr chat_id: Chat ID of the message
     :attr msg_id: ID of the message
     :attr sender: Message sender User
     :attr text: Message text
     """
+    is_bot_command: bool
+    msg_id: Optional[int] = None
+    chat_dict: Optional[dict] = None
+    chat_id: Optional[int] = None
+    sender: Optional[TelegramUser] = None
+    text: Optional[str] = None
 
     def __init__(self, message_dict: dict):
         """
         :param message_dict: Message dictionary from update
         """
-        self.message_dict = message_dict
-        try:
-            self.msg_id = int(self.message_dict["message_id"])
-        except KeyError:
-            self.msg_id = None
-        try:
-            self.chat_id = int(self.message_dict["chat"]["id"])
-        except KeyError:
-            self.chat_id = None
-        try:
-            self.sender = TelegramUser(self.message_dict["from"])
-        except KeyError:
-            self.sender = None
-        try:
-            self.text = self.message_dict["text"]
-        except KeyError:
-            self.text = None
+        attributes = {
+            "msg_id": "message_id",
+            "message": "message",
+            "chat_dict": "chat",
+            "sender": "from",
+            "text": "text"
+        }
+        for key in attributes:
+            try:
+                setattr(self, key, message_dict[attributes[key]])
+            except KeyError:
+                setattr(self, key, None)
+        if self.msg_id:
+            self.msg_id = int(self.msg_id)
+        if self.chat_dict:
+            self.chat_id = int(self.chat_dict["id"])
+        if self.sender:
+            self.sender = TelegramUser(self.sender)
         self.is_bot_command = False
         try:
-            if self.message_dict["entities"][0]["type"] == "bot_command":
+            if message_dict["entities"][0]["type"] == "bot_command":
                 self.is_bot_command = True
         except TypeError:
             pass
@@ -181,7 +203,7 @@ class CmdHelp(BotCommand):
 
     :attr command_list: Optional additional commands to add to /help command
     """
-    command_list: List[Dict[str, str]] = None
+    command_list: List[Dict[str, str]] = field(default_factory=[])
 
     def __init__(self, bot: TelegramBot, msg: TelegramMessage):
         self.bot = bot
@@ -190,8 +212,6 @@ class CmdHelp(BotCommand):
         super().__init__()
 
     def execute(self):
-        if not self.command_list:
-            self.command_list = []
         command_list_string = ""
         self.command_list += self.bot.get_my_commands()["result"]
         for command in self.command_list:
@@ -210,7 +230,7 @@ class CmdStart(BotCommand):
         super().__init__()
 
     def execute(self):
-        self.bot.send_message(self.msg.chat_id, f"Hello {self.msg.sender['first_name']}")
+        self.bot.send_message(self.msg.chat_id, f"Hello {self.msg.sender.first_name}")
         self.msg.text = "/help"
         self.bot.help_command(self.bot, self.msg)
 
