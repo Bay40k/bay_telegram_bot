@@ -203,7 +203,7 @@ class CmdHelp(BotCommand):
 
     :attr command_list: Optional additional commands to add to /help command
     """
-    command_list: List[Dict[str, str]] = field(default_factory=[])
+    command_list: List[Dict[str, str]] = None
 
     def __init__(self, bot: TelegramBot, msg: TelegramMessage):
         self.bot = bot
@@ -212,6 +212,8 @@ class CmdHelp(BotCommand):
         super().__init__()
 
     def execute(self):
+        if not self.command_list:
+            self.command_list = []
         command_list_string = ""
         self.command_list += self.bot.get_my_commands()["result"]
         for command in self.command_list:
@@ -247,14 +249,20 @@ class TelegramBot:
     :attr start_command: Start command to use
     """
     BotCommand: Callable[[TelegramBot, TelegramMessage], None]
-    bot_commands: List[BotCommand] = field(default_factory=list)
-    commands_to_run_on_loop: List[BotCommand] = field(default_factory=list)
-    commands_to_run_on_every_message: List[BotCommand] = field(default_factory=list)
+    bot_commands: List[BotCommand] = None
+    commands_to_run_on_loop: List[BotCommand] = None
+    commands_to_run_on_every_message: List[BotCommand] = None
     help_command: CmdHelp = CmdHelp
     start_command: CmdStart = CmdStart
     callback_query_handler: Callable[[TelegramBot, TelegramCallbackQuery], None] = None
 
     def __init__(self, access_token: str):
+        if not self.bot_commands:
+            self.bot_commands = []
+        if not self.commands_to_run_on_loop:
+            self.commands_to_run_on_loop = []
+        if not self.commands_to_run_on_every_message:
+            self.commands_to_run_on_every_message = []
         self.builtin_commands = [self.help_command, self.start_command]
         self.access_token = access_token
         self.api_url = f"https://api.telegram.org/bot{self.access_token}/"
