@@ -1,13 +1,14 @@
 from __future__ import annotations
 import inspect
 import json
+from abc import abstractmethod
 import requests
 import sys
 import time
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict, List
 from loguru import logger
 
 
@@ -168,6 +169,7 @@ class BotCommand:
             logger.debug(f"Executing command: '{self.cmd_name} {' '.join(self.arguments)}'" + from_string)
             self.execute()
 
+    @abstractmethod
     def execute(self):
         raise NotImplementedError
 
@@ -225,20 +227,14 @@ class TelegramBot:
     :attr start_command: Start command to use
     """
     BotCommand: Callable[[TelegramBot, TelegramMessage], None]
-    bot_commands: List[BotCommand] = None
-    commands_to_run_on_loop: List[BotCommand] = None
-    commands_to_run_on_every_message: List[BotCommand] = None
+    bot_commands: List[BotCommand] = field(default_factory=list)
+    commands_to_run_on_loop: List[BotCommand] = field(default_factory=list)
+    commands_to_run_on_every_message: List[BotCommand] = field(default_factory=list)
     help_command: CmdHelp = CmdHelp
     start_command: CmdStart = CmdStart
     callback_query_handler: Callable[[TelegramBot, TelegramCallbackQuery], None] = None
 
     def __init__(self, access_token: str):
-        if not self.bot_commands:
-            self.bot_commands = []
-        if not self.commands_to_run_on_loop:
-            self.commands_to_run_on_loop = []
-        if not self.commands_to_run_on_every_message:
-            self.commands_to_run_on_every_message = []
         self.builtin_commands = [self.help_command, self.start_command]
         self.access_token = access_token
         self.api_url = f"https://api.telegram.org/bot{self.access_token}/"
