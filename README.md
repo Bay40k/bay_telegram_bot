@@ -122,3 +122,45 @@ def main():
     telegram_bot.bot_commands = [MyCommand]
     telegram_bot.start()
 ```
+#### Extending objects to handle inline keyboard callbacks with Pyrogram and [PyKeyboard](https://github.com/pystorage/pykeyboard)
+```python
+from telegram_bot import TelegramBot, TelegramMessage, BotCommand, TelegramCallbackQuery
+from pyrogram import Client
+from pykeyboard import InlineKeyboard
+from pyrogram.types import InlineKeyboardButton
+
+class OnCallbackQuery:
+    def __init__(self, bot: TelegramBot, callback_query: TelegramCallbackQuery):
+        # Do stuff
+        pass
+
+
+class MyBot(TelegramBot):
+    def __init__(self, access_token: str, api_id: int, api_hash: str):
+        self.callback_query_handler = OnCallbackQuery # Type: Callable[[TelegramBot, TelegramCallbackQuery], None]
+        super().__init__(access_token)
+        self.pyrogram_client = Client("telegram_mtproto", api_id, api_hash, phone_number="<phone_number>>")
+        self.pyrogram_bot = Client("telegram_mtproto_bot", api_id, api_hash, bot_token=access_token)
+
+
+class MyCommand(BotCommand):
+    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
+        self.bot = bot
+        self.msg = msg
+        self.cmd_name = "/command_name_here"
+        super().__init__()
+
+    def execute(self):
+        keyboard = InlineKeyboard(row_width=3)
+        keyboard.row(InlineKeyboardButton("Button text", callback_data="callback data"))
+        with self.bot.pyrogram_bot:
+            self.bot.pyrogram_bot.send_message(self.msg.chat_id, "Message text", reply_markup=keyboard)
+
+def main():
+    access_token = "<access token>"
+    api_id = 1234
+    api_hash = "<api_hash>"
+    telegram_bot = MyBot(access_token, api_id, api_hash)
+    telegram_bot.bot_commands = [MyCommand]
+    telegram_bot.start()
+```
