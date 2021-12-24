@@ -116,7 +116,7 @@ class TelegramUpdate:
         if self.message:
             self.message = TelegramMessage(self.message)
         if self.callback_query:
-            self.sender = TelegramCallbackQuery(self.callback_query)
+            self.callback_query = TelegramCallbackQuery(self.callback_query)
 
 
 @dataclass
