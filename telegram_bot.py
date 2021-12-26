@@ -92,7 +92,7 @@ class TelegramUpdate:
 
     :attr update_id: ID of the update
     :attr callback_query: CallbackQuery object if it exists
-    :attr message: Message attached to the update
+    :attr message: Message object if it exists
     """
     update_id: Optional[int] = None
     message: Optional[TelegramMessage] = None
