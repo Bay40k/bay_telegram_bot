@@ -86,8 +86,12 @@ class MyBot(TelegramBot):
         self.pyrogram_bot = Client("telegram_mtproto_bot", api_id, api_hash, bot_token=access_token)
 
     def send_document(self, chat_id: int, document: Path):
-        with self.pyrogram_bot:
-            self.pyrogram_bot.send_document(chat_id, document)
+        try:
+            self.pyrogram_bot.connect()
+        except ConnectionError:
+            # Ignore if already connected
+            pass
+        self.pyrogram_bot.send_document(chat_id, document)
             
     def get_history(self, chat_id: Union[int, str], offset: int = 0) -> List[TelegramMessage]:
         """
@@ -96,11 +100,14 @@ class MyBot(TelegramBot):
             print(f"{message.sender['first_name']}: {message.text}")
         """
         messages = []
-        with self.pyrogram_client:
-            for message in self.pyrogram_client.get_history(int(chat_id), offset=offset):
-                message["from"] = message["from_user"]
-                message = TelegramMessage(message)
-                messages.append(message)
+        try:
+            self.pyrogram_bot.connect()
+        except ConnectionError:
+            pass
+        for message in self.pyrogram_client.get_history(int(chat_id), offset=offset):
+            message["from"] = message["from_user"]
+            message = TelegramMessage(message)
+            messages.append(message)
         return messages
 
 class MyCommand(BotCommand):
@@ -153,8 +160,11 @@ class MyCommand(BotCommand):
     def execute(self):
         keyboard = InlineKeyboard(row_width=3)
         keyboard.row(InlineKeyboardButton("Button text", callback_data="callback data"))
-        with self.bot.pyrogram_bot:
-            self.bot.pyrogram_bot.send_message(self.msg.chat_id, "Message text", reply_markup=keyboard)
+        try:
+            self.bot.pyrogram_bot.connect()
+        except ConnectionError:
+            pass
+        self.bot.pyrogram_bot.send_message(self.msg.chat_id, "Message text", reply_markup=keyboard)
 
 def main():
     access_token = "<access token>"

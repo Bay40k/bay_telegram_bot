@@ -36,18 +36,6 @@ class CmdRadarr(RadarrCommand):
         self.cmd_name = "/radarr"
         super().__init__()
 
-    def get_queue(self):
-        try:
-            queue_records = self.radarr.get_queue()["records"]
-        except TypeError:
-            queue_records = []
-        dls = []
-        for dl in queue_records:
-            if dl["status"] == "downloading":
-                print(dl['title'])
-                dls.append({"title": dl["title"], "time left HH:MM:SS": dl["timeleft"], "status": dl["status"]})
-        self.bot.send_message(self.msg.chat_id, json.dumps(dls, indent=4))
-
     def remove_movie(self):
         try:
             query = self.arguments[1]
@@ -69,6 +57,18 @@ class CmdRadarr(RadarrCommand):
         movie_title = movie_result[0]['title']
         movie_year = movie_result[0]['year']
         self.bot.send_message(self.msg.chat_id, f"Removed movie: {movie_title} ({movie_year})")
+
+    def get_queue(self):
+        try:
+            queue_records = self.radarr.get_queue()["records"]
+        except TypeError:
+            queue_records = []
+        dls = []
+        for dl in queue_records:
+            if dl["status"] == "downloading":
+                print(dl['title'])
+                dls.append({"title": dl["title"], "time left HH:MM:SS": dl["timeleft"], "status": dl["status"]})
+        self.bot.send_message(self.msg.chat_id, json.dumps(dls, indent=4))
 
     def execute(self):
         try:
@@ -134,8 +134,11 @@ class CmdFindMovies(RadarrCommand):
             movie_id = movie[2]
             cmd_string = f"/radarr {movie_id}"
             keyboard.row(InlineKeyboardButton(f"{i}. {movie_name} ({movie_year})", callback_data=cmd_string))
-        with self.bot.pyrogram_bot:
-            self.bot.pyrogram_bot.send_message(self.msg.chat_id, "Results:", reply_markup=keyboard)
+        try:
+            self.bot.pyrogram_bot.connect()
+        except ConnectionError:
+            pass
+        self.bot.pyrogram_bot.send_message(self.msg.chat_id, "Results:", reply_markup=keyboard)
 
 
 class OnCallbackQuery:
@@ -197,7 +200,8 @@ class CmdSonarr(SonarrCommand):
             series = self.sonarr.get_series(show_id)
             series['seasons'][season]['monitored'] = monitored
         except IndexError:
-            self.bot.send_message(self.msg.chat_id, "Season not found")
+            if sendmsg:
+                self.bot.send_message(self.msg.chat_id, "Season not found")
             return None
         except TypeError:
             return None
@@ -340,8 +344,11 @@ class CmdFindShows(SonarrCommand):
             show_id = show[2]
             cmd_string = f"/sonarr {show_id}"
             keyboard.row(InlineKeyboardButton(f"{i}. {show_name} ({show_year})", callback_data=cmd_string))
-        with self.bot.pyrogram_bot:
-            self.bot.pyrogram_bot.send_message(self.msg.chat_id, "Results:", reply_markup=keyboard)
+        try:
+            self.bot.pyrogram_bot.connect()
+        except ConnectionError:
+            pass
+        self.bot.pyrogram_bot.send_message(self.msg.chat_id, "Results: ", reply_markup=keyboard)
 
 
 class CmdKanye(BotCommand):
