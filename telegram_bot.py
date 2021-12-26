@@ -143,7 +143,6 @@ class TelegramMessage:
         """
         attributes = {
             "msg_id": "message_id",
-            "message": "message",
             "chat_dict": "chat",
             "sender": "from",
             "text": "text"
