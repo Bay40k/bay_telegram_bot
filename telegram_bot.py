@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import asyncio
 from abc import abstractmethod
 from dataclasses import dataclass
@@ -11,7 +10,6 @@ import json
 import requests
 import sys
 import threading
-import time
 import traceback
 
 
@@ -180,21 +178,23 @@ class BotCommand:
     :attr msg: TelegramMessage object to read from
     """
     cmd_name: str
-    arguments: list
+    msg: TelegramMessage
     bot: TelegramBot
+    arguments: Optional[list]
 
-    async def check_command(self, msg: TelegramMessage):
-        self.msg = msg
+    def __init__(self):
         if self.msg and self.cmd_name.lower() in self.msg.text.lower() and self.msg.is_bot_command:
             self.arguments = self.msg.text.split(" ")[1:]
             from_string = ""
             if self.msg.sender:
                 from_string += f" from {self.msg.sender.first_name} (@{str(self.msg.sender.username)})"
             logger.debug(f"Executing command: '{self.cmd_name} {' '.join(self.arguments)}'" + from_string)
-            await self.execute()
+            self.execute()
+        else:
+            self.arguments = None
 
     @abstractmethod
-    async def execute(self):
+    def execute(self):
         raise NotImplementedError
 
 
@@ -258,6 +258,7 @@ class TelegramBot:
     start_command: CmdStart = CmdStart
     CallbackQueryHandler = NewType("CallbackQueryHandler", Callable[["TelegramBot", TelegramCallbackQuery], None])
     callback_query_handler: CallbackQueryHandler = None
+    event_loop: asyncio.BaseEventLoop = None
 
     def __init__(self, access_token: str):
         if not self.bot_commands:
@@ -324,23 +325,6 @@ class TelegramBot:
             updates.append(TelegramUpdate(update))
         return updates
 
-    async def run_commands(self, commands_to_run: List[BotCommand], msg: TelegramMessage):
-        """
-        Run all command functions
-
-        :param commands_to_run: List of functions to run
-        :param msg: Telegram message object
-        :return: None
-        """
-        try:
-            for command in commands_to_run:
-                await command.check_command(self, msg)
-        except Exception as e:
-            if msg:
-                self.send_message(msg.chat_id,
-                                  f"There was an error running the command:\n{e}")
-            raise e
-
     def save_json_to_file(self, data_to_save: dict, file_to_save: Path = None):
         """
         Save JSON data to file
@@ -375,6 +359,34 @@ class TelegramBot:
             self.saved_data = json.load(f)
             return self.saved_data
 
+    def run_all_commands(self, commands_to_run: List[BotCommand], msg: TelegramMessage):
+        """
+        Run all command functions
+
+        :param commands_to_run: List of functions to run
+        :param msg: Telegram message object
+        :return: None
+        """
+        try:
+            for command in commands_to_run:
+                command(self, msg)
+        except Exception as e:
+            if msg:
+                self.send_message(msg.chat_id,
+                                  f"There was an error running the command:\n{e}")
+            raise e
+
+    def run_all_commands_thread(self, commands_to_run: List[BotCommand], message: TelegramMessage):
+        """
+        Runs self.run_all_commands() in a thread
+
+        :param commands_to_run: List of BotCommand
+        :param message: TelegramMessage object
+        :return: None
+        """
+        thread = threading.Thread(target=self.run_all_commands, args=(commands_to_run, message))
+        thread.start()
+
     async def on_update(self, update: TelegramUpdate):
         # print(json.dumps(update, indent=4))
         # set current_update_id to latest update_id
@@ -392,10 +404,10 @@ class TelegramBot:
         logger.debug(f"New message from #{message.chat_id} "
                      f"{message.sender.first_name} (@{str(message.sender.username)})")
         if message.is_bot_command:
-            await self.run_commands(self.builtin_commands, message)
-            await self.run_commands(self.bot_commands, message)
+            self.run_all_commands_thread(self.builtin_commands, message)
+            self.run_all_commands_thread(self.bot_commands, message)
         else:
-            await self.run_commands(self.commands_to_run_on_every_message, message)
+            self.run_all_commands_thread(self.commands_to_run_on_every_message, message)
 
     async def on_loop(self):
         """
@@ -403,7 +415,7 @@ class TelegramBot:
 
         :return: None
         """
-        # await self.run_commands(self.commands_to_run_on_loop, msg=None)
+        self.run_all_commands_thread(self.commands_to_run_on_loop, message=None)
 
         saved_data = self.read_json_from_file()
         current_update_id = saved_data["current_update_id"]
@@ -415,17 +427,16 @@ class TelegramBot:
 
         for update in updates:
             await self.on_update(update)
-            #t = threading.Thread(target=self.on_update, args=(update,))
-            #t.start()
 
         self.save_json_to_file(saved_data)
 
-    async def entry_point(self):
+    async def main(self):
         """
         Starts main loop.
 
         :return: None
         """
+        self.event_loop = asyncio.get_running_loop()
         logger.info(f"Starting bot <{sys.argv[0].split('/')[-1]}>")
         enabled_commands = {
             "Commands enabled"                : [x.__name__ for x in self.bot_commands],
@@ -443,4 +454,9 @@ class TelegramBot:
             await asyncio.sleep(10)
 
     def start(self):
-        asyncio.run(self.entry_point())
+        """
+        Entry point function
+
+        :return: None
+        """
+        asyncio.get_event_loop().run_until_complete(self.main())
