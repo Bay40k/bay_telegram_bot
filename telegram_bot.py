@@ -1,15 +1,16 @@
 from __future__ import annotations
+from abc import abstractmethod
+from dataclasses import dataclass
+from loguru import logger
+from pathlib import Path
+from typing import Callable, Dict, List, NewType, Optional
 import inspect
 import json
-from abc import abstractmethod
 import requests
 import sys
+import threading
 import time
 import traceback
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Callable, Dict, List, Optional
-from loguru import logger
 
 
 @dataclass
@@ -124,7 +125,7 @@ class TelegramMessage:
     """
     Telegram message object.
 
-    :attr is_bot_comand: Bool of if message is bot command
+    :attr is_bot_command: Bool of if message is bot command
     :attr chat_id: Chat ID of the message
     :attr msg_id: ID of the message
     :attr sender: Message sender User
@@ -247,13 +248,14 @@ class TelegramBot:
     :attr help_command: Help command to use
     :attr start_command: Start command to use
     """
-    BotCommand: Callable[[TelegramBot, TelegramMessage], None]
+    BotCommand = NewType("BotCommand", Callable[["TelegramBot", TelegramMessage], None])
     bot_commands: List[BotCommand] = None
     commands_to_run_on_loop: List[BotCommand] = None
     commands_to_run_on_every_message: List[BotCommand] = None
     help_command: CmdHelp = CmdHelp
     start_command: CmdStart = CmdStart
-    callback_query_handler: Callable[[TelegramBot, TelegramCallbackQuery], None] = None
+    CallbackQueryHandler = NewType("CallbackQueryHandler", Callable[["TelegramBot", TelegramCallbackQuery], None])
+    callback_query_handler: CallbackQueryHandler = None
 
     def __init__(self, access_token: str):
         if not self.bot_commands:
@@ -406,11 +408,14 @@ class TelegramBot:
         logger.info(f"Current update ID: {current_update_id}")
 
         updates = self.get_updates(current_update_id, allowed_updates="message")
-        for update in updates:
-            self.on_update(update)
+        if not updates:
+            return None
 
-        if updates:
-            self.save_json_to_file(saved_data)
+        for update in updates:
+            t = threading.Thread(target=self.on_update, args=(update,))
+            t.start()
+
+        self.save_json_to_file(saved_data)
 
     def start(self):
         """
