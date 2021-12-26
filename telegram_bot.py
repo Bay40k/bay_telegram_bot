@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import asyncio
 from abc import abstractmethod
 from dataclasses import dataclass
 from loguru import logger
@@ -179,20 +181,20 @@ class BotCommand:
     """
     cmd_name: str
     arguments: list
-    msg: TelegramMessage
     bot: TelegramBot
 
-    def __init__(self):
+    async def check_command(self, msg: TelegramMessage):
+        self.msg = msg
         if self.msg and self.cmd_name.lower() in self.msg.text.lower() and self.msg.is_bot_command:
             self.arguments = self.msg.text.split(" ")[1:]
             from_string = ""
             if self.msg.sender:
                 from_string += f" from {self.msg.sender.first_name} (@{str(self.msg.sender.username)})"
             logger.debug(f"Executing command: '{self.cmd_name} {' '.join(self.arguments)}'" + from_string)
-            self.execute()
+            await self.execute()
 
     @abstractmethod
-    def execute(self):
+    async def execute(self):
         raise NotImplementedError
 
 
@@ -322,7 +324,7 @@ class TelegramBot:
             updates.append(TelegramUpdate(update))
         return updates
 
-    def run_commands(self, commands_to_run: List[BotCommand], msg: TelegramMessage):
+    async def run_commands(self, commands_to_run: List[BotCommand], msg: TelegramMessage):
         """
         Run all command functions
 
@@ -332,7 +334,7 @@ class TelegramBot:
         """
         try:
             for command in commands_to_run:
-                command(self, msg)
+                await command.check_command(self, msg)
         except Exception as e:
             if msg:
                 self.send_message(msg.chat_id,
@@ -373,7 +375,7 @@ class TelegramBot:
             self.saved_data = json.load(f)
             return self.saved_data
 
-    def on_update(self, update: TelegramUpdate):
+    async def on_update(self, update: TelegramUpdate):
         # print(json.dumps(update, indent=4))
         # set current_update_id to latest update_id
         self.saved_data["current_update_id"] = update.update_id + 1
@@ -390,18 +392,18 @@ class TelegramBot:
         logger.debug(f"New message from #{message.chat_id} "
                      f"{message.sender.first_name} (@{str(message.sender.username)})")
         if message.is_bot_command:
-            self.run_commands(self.builtin_commands, message)
-            self.run_commands(self.bot_commands, message)
+            await self.run_commands(self.builtin_commands, message)
+            await self.run_commands(self.bot_commands, message)
         else:
-            self.run_commands(self.commands_to_run_on_every_message, message)
+            await self.run_commands(self.commands_to_run_on_every_message, message)
 
-    def on_loop(self):
+    async def on_loop(self):
         """
         Code to run on each loop
 
         :return: None
         """
-        self.run_commands(self.commands_to_run_on_loop, msg=None)
+        # await self.run_commands(self.commands_to_run_on_loop, msg=None)
 
         saved_data = self.read_json_from_file()
         current_update_id = saved_data["current_update_id"]
@@ -412,12 +414,13 @@ class TelegramBot:
             return None
 
         for update in updates:
-            t = threading.Thread(target=self.on_update, args=(update,))
-            t.start()
+            await self.on_update(update)
+            #t = threading.Thread(target=self.on_update, args=(update,))
+            #t.start()
 
         self.save_json_to_file(saved_data)
 
-    def start(self):
+    async def entry_point(self):
         """
         Starts main loop.
 
@@ -433,8 +436,11 @@ class TelegramBot:
             logger.info(f"{key}: {value}")
         while True:
             try:
-                self.on_loop()
+                await self.on_loop()
             except Exception as e:
                 logger.error(e)
                 logger.error(traceback.format_exc())
-            time.sleep(10)
+            await asyncio.sleep(10)
+
+    def start(self):
+        asyncio.run(self.entry_point())
