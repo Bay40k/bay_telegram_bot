@@ -404,8 +404,7 @@ class TelegramBot:
         logger.debug(f"New message from #{message.chat_id} "
                      f"{message.sender.first_name} (@{str(message.sender.username)})")
         if message.is_bot_command:
-            self.run_all_commands_thread(self.builtin_commands, message)
-            self.run_all_commands_thread(self.bot_commands, message)
+            self.run_all_commands_thread(self.builtin_commands + self.bot_commands, message)
         else:
             self.run_all_commands_thread(self.commands_to_run_on_every_message, message)
 
