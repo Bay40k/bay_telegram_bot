@@ -1,17 +1,17 @@
 from abc import ABC
 from dataclasses import dataclass
 from pathlib import Path
-
-import yt_dlp
 from pyarr import RadarrAPI, SonarrAPI
 from pykeyboard import InlineKeyboard
 from pyrogram import Client
 from pyrogram.types import InlineKeyboardButton
+from pyrogramplugin import PyrogramPlugin
 from telegram_bot import BotCommand, TelegramMessage, TelegramBot, TelegramCallbackQuery
 import json
 import os
 import requests
 import wikipedia
+import yt_dlp
 
 
 @dataclass
@@ -447,16 +447,14 @@ class ExampleBot(TelegramBot):
     def __init__(self, access_token: str, api_id: int, api_hash: str):
         self.callback_query_handler = OnCallbackQuery
         super().__init__(access_token)
-        self.pyrogram_client = Client("example_bot_MTProto", api_id, api_hash, phone_number="<phone_number>")
-        self.pyrogram_bot = Client("example_bot", api_id, api_hash, bot_token=access_token)
+        self.pyrogram_client = PyrogramPlugin("example_bot_MTProto", api_id, api_hash, phone_number="<phone_number>")
+        self.pyrogram_bot = PyrogramPlugin("example_bot", api_id, api_hash, bot_token=access_token)
 
     def delete_message(self, msg: TelegramMessage):
-        with self.pyrogram_client:
-            self.pyrogram_client.delete_messages(msg.chat_id, msg.msg_id)
+        self.pyrogram_client.delete_messages(msg.chat_id, msg.msg_id)
 
     def send_document(self, chat_id: int, document: Path):
-        with self.pyrogram_bot:
-            self.pyrogram_bot.send_document(chat_id, document)
+        self.pyrogram_bot.send_document(chat_id, document)
 
 
 def main():
