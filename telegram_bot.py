@@ -275,7 +275,7 @@ class TelegramBot:
         self.default_log_format = "<g>{time:MM/DD/YYYY HH:mm:ss}</g> | <lvl>{level}</lvl> | <lvl><b>{message}</b></lvl>"
         self.saved_data = None
 
-    def enable_logging(self, log_level: str = "INFO", log_format: str = None):
+    def enable_logging(self, log_level: str = "INFO", log_format: Optional[str] = None):
         """
         Enables logging.
 
@@ -287,7 +287,7 @@ class TelegramBot:
             log_format = self.default_log_format
         logger.add(sys.stderr, format=log_format, level=log_level, colorize=True)
 
-    def send_message(self, chat_id: str, text: str, parse_mode: str = None) -> requests.Response:
+    def send_message(self, chat_id: str, text: str, parse_mode: Optional[str] = None) -> requests.Response:
         """
         Sends Telegram message.
 
@@ -310,7 +310,7 @@ class TelegramBot:
         """
         return requests.get(self.api_url + "getMyCommands").json()
 
-    def get_updates(self, offset: int = None, allowed_updates: str = None) -> List[TelegramUpdate]:
+    def get_updates(self, offset: Optional[int] = None, allowed_updates: Optional[str] = None) -> List[TelegramUpdate]:
         """
         Retrieve Telegram updates.
 
@@ -325,7 +325,7 @@ class TelegramBot:
             updates.append(TelegramUpdate(update))
         return updates
 
-    def save_json_to_file(self, data_to_save: dict, file_to_save: Path = None):
+    def save_json_to_file(self, data_to_save: dict, file_to_save: Optional[Path] = None):
         """
         Save JSON data to file
 
@@ -339,10 +339,12 @@ class TelegramBot:
             data_to_save = self.saved_data
         caller_name = inspect.stack()[1][3]
         logger.debug(f"{caller_name} | Saving to JSON file '{file_to_save.resolve()}'")
-        with open(file_to_save, "w") as f:
-            json.dump(data_to_save, f, indent=4)
+        # Only save if data has changed
+        if data_to_save != self.read_json_from_file():
+            with open(file_to_save, "w") as f:
+                json.dump(data_to_save, f, indent=4)
 
-    def read_json_from_file(self, file_to_read: Path = None) -> dict:
+    def read_json_from_file(self, file_to_read: Optional[Path] = None) -> dict:
         """
         Read JSON from saved file
 
@@ -388,8 +390,12 @@ class TelegramBot:
         thread.start()
 
     async def on_update(self, update: TelegramUpdate):
-        # print(json.dumps(update, indent=4))
-        # set current_update_id to latest update_id
+        """
+        Code to run on every update
+
+        :param update: TelegramUpdate object
+        :return: None
+        """
         self.saved_data["current_update_id"] = update.update_id + 1
 
         if update.callback_query:
