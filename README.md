@@ -92,7 +92,7 @@ class MyBot(TelegramBot):
         """
         Example usage in a BotCommand method:
         for message in self.bot.get_history(self.msg.chat_id):
-            print(f"{message.sender['first_name']}: {message.text}")
+            print(f"{message.sender.first_name}: {message.text}")
         """
         messages = []
         for message in self.pyrogram_client.get_history(int(chat_id), offset=offset):
