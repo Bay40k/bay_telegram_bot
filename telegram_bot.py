@@ -325,7 +325,7 @@ class TelegramBot:
             updates.append(TelegramUpdate(update))
         return updates
 
-    def save_json_to_file(self, data_to_save: dict, file_to_save: Optional[Path] = None):
+    def save_json_to_file(self, data_to_save: Optional[dict] = None, file_to_save: Optional[Path] = None):
         """
         Save JSON data to file
 
@@ -337,12 +337,16 @@ class TelegramBot:
             file_to_save = self.saved_data_path
         if self.saved_data:
             data_to_save = self.saved_data
+        if not data_to_save:
+            raise Exception("No data provided to save")
         caller_name = inspect.stack()[1][3]
-        logger.debug(f"{caller_name} | Saving to JSON file '{file_to_save.resolve()}'")
         # Only save if data has changed
+        self.saved_data = None
         if data_to_save != self.read_json_from_file():
+            logger.debug(f"{caller_name} | Saving to JSON file '{file_to_save.resolve()}'")
             with open(file_to_save, "w") as f:
                 json.dump(data_to_save, f, indent=4)
+        self.saved_data = data_to_save
 
     def read_json_from_file(self, file_to_read: Optional[Path] = None) -> dict:
         """
@@ -420,10 +424,9 @@ class TelegramBot:
 
         :return: None
         """
+        self.read_json_from_file()
         self.run_all_commands_thread(self.commands_to_run_on_loop, message=None)
-
-        saved_data = self.read_json_from_file()
-        current_update_id = saved_data["current_update_id"]
+        current_update_id = self.saved_data["current_update_id"]
         logger.info(f"Current update ID: {current_update_id}")
 
         updates = self.get_updates(current_update_id, allowed_updates="message")
@@ -433,7 +436,7 @@ class TelegramBot:
         for update in updates:
             await self.on_update(update)
 
-        self.save_json_to_file(saved_data)
+        self.save_json_to_file()
 
     async def main(self):
         """
