@@ -403,6 +403,13 @@ class CmdYouTubeDL(BotCommand):
                     'preferredquality': '192',
                 }]
             })
+        else:
+            ydl_opts.update({
+                'postprocessors': [{
+                    'key'           : 'FFmpegVideoConvertor',
+                    'preferedformat': 'mp4'
+                }]
+            })
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             result = ydl.extract_info(link, download=True)
