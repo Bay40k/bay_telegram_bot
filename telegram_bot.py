@@ -379,7 +379,7 @@ class TelegramBot:
         except Exception as e:
             if msg:
                 self.send_message(msg.chat_id,
-                                  f"There was an error running the command:\n{e}")
+                                  f"There was an error running the command:\n{type(e).__name__}: {e}")
             raise e
 
     def run_all_commands_thread(self, commands_to_run: List[BotCommand], message: TelegramMessage):
