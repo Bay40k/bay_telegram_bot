@@ -73,11 +73,13 @@ def main():
     telegram_bot.start()
 ```
 ##### Extending objects to include [Pyrogram](https://github.com/pyrogram) plugin, in order to access MTProto commands not available through the HTTP bot API. (Such as `get_history()`)
+
 ```python
 from telegram_bot import TelegramBot, TelegramMessage, BotCommand
 from pathlib import Path
-from pyrogramplugin import PyrogramPlugin
+from plugins import PyrogramPlugin
 from typing import List, Union
+
 
 class MyBot(TelegramBot):
     def __init__(self, access_token: str, api_id: int, api_hash: str):
@@ -101,6 +103,7 @@ class MyBot(TelegramBot):
             messages.append(message)
         return messages
 
+
 class MyCommand(BotCommand):
     def __init__(self, bot: TelegramBot, msg: TelegramMessage):
         self.bot = bot
@@ -112,6 +115,7 @@ class MyCommand(BotCommand):
         my_file = Path("/path/to/file")
         self.bot.send_document(self.msg.chat_id, my_file)
 
+
 def main():
     access_token = "<access token>"
     api_id = 1234
@@ -121,11 +125,13 @@ def main():
     telegram_bot.start()
 ```
 #### Extending objects to handle inline keyboard callbacks with Pyrogram and [PyKeyboard](https://github.com/pystorage/pykeyboard)
+
 ```python
 from telegram_bot import TelegramBot, TelegramMessage, BotCommand, TelegramCallbackQuery
-from pyrogramplugin import PyrogramPlugin
+from plugins import PyrogramPlugin
 from pykeyboard import InlineKeyboard
 from pyrogram.types import InlineKeyboardButton
+
 
 class OnCallbackQuery:
     def __init__(self, bot: TelegramBot, callback_query: TelegramCallbackQuery):
@@ -135,7 +141,7 @@ class OnCallbackQuery:
 
 class MyBot(TelegramBot):
     def __init__(self, access_token: str, api_id: int, api_hash: str):
-        self.callback_query_handler = OnCallbackQuery # Type: Callable[[TelegramBot, TelegramCallbackQuery], None]
+        self.callback_query_handler = OnCallbackQuery  # Type: Callable[[TelegramBot, TelegramCallbackQuery], None]
         super().__init__(access_token)
         self.pyrogram_client = PyrogramPlugin("telegram_mtproto", api_id, api_hash, phone_number="<phone_number>>")
         self.pyrogram_bot = PyrogramPlugin("telegram_mtproto_bot", api_id, api_hash, bot_token=access_token)
@@ -152,6 +158,7 @@ class MyCommand(BotCommand):
         keyboard = InlineKeyboard(row_width=3)
         keyboard.row(InlineKeyboardButton("Button text", callback_data="callback data"))
         self.bot.pyrogram_bot.send_message(self.msg.chat_id, "Message text", reply_markup=keyboard)
+
 
 def main():
     access_token = "<access token>"

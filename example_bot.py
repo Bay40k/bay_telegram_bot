@@ -5,7 +5,7 @@ from pyarr import RadarrAPI, SonarrAPI
 from pykeyboard import InlineKeyboard
 from pyrogram import Client
 from pyrogram.types import InlineKeyboardButton
-from pyrogramplugin import PyrogramPlugin
+from plugins import PyrogramPlugin
 from telegram_bot import BotCommand, TelegramMessage, TelegramBot, TelegramCallbackQuery
 import json
 import os
@@ -416,7 +416,7 @@ class CmdYouTubeDL(BotCommand):
 
         video_file_path = [Path(f).resolve() for f in self.download_path.iterdir()][0]
 
-        self.bot.send_video(self.msg.chat_id, video_file_path)
+        self.bot.pyrogram_bot.send_video(self.msg.chat_id, video_file_path)
 
         for f in self.download_path.iterdir():
             os.remove(Path(f))
