@@ -416,7 +416,7 @@ class CmdYouTubeDL(BotCommand):
 
         video_file_path = [Path(f).resolve() for f in self.download_path.iterdir()][0]
 
-        self.bot.send_document(self.msg.chat_id, video_file_path)
+        self.bot.send_video(self.msg.chat_id, video_file_path)
 
         for f in self.download_path.iterdir():
             os.remove(Path(f))
