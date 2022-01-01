@@ -458,7 +458,7 @@ class ExampleBot(TelegramBot):
         self.pyrogram_bot = PyrogramPlugin("example_bot", api_id, api_hash, bot_token=access_token)
 
     def delete_message(self, msg: TelegramMessage):
-        self.pyrogram_client.delete_messages(msg.chat_id, msg.msg_id)
+        self.pyrogram_client.delete_messages(msg.chat_id, msg.message_id)
 
     def send_document(self, chat_id: int, document: Path):
         self.pyrogram_bot.send_document(chat_id, document)

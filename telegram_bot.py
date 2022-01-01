@@ -18,12 +18,12 @@ class TelegramUser:
     """
     Telegram user object.
 
-    :attr user_id: ID of the user
+    :attr id: ID of the user
     :attr is_bot: If user is a bot
     :attr first_name: User's first name
     :attr username: User's username
     """
-    user_id: Optional[int] = None
+    id: Optional[int] = None
     is_bot: Optional[bool] = None
     first_name: Optional[str] = None
     username: Optional[str] = None
@@ -32,19 +32,13 @@ class TelegramUser:
         """
         :param user_dict: User dictionary (usually ["message"]["from"])
         """
-        attributes = {
-            "user_id:": "id",
-            "is_bot": "is_bot",
-            "first_name": "first_name",
-            "username": "username"
-        }
-        for key in attributes:
+        for key in user_dict:
             try:
-                setattr(self, key, user_dict[attributes[key]])
+                setattr(self, key, user_dict[key])
             except KeyError:
                 setattr(self, key, None)
-        if self.user_id:
-            self.user_id = int(self.user_id)
+        if self.id:
+            self.id = int(self.id)
 
 
 @dataclass
@@ -52,12 +46,12 @@ class TelegramCallbackQuery:
     """
     Telegram CallbackQuery object.
 
-    :attr callback_id: ID of the CallbackQuery
+    :attr id: ID of the CallbackQuery
     :attr sender: User object of the sender
     :attr message: Message attached to the callback_query
     :attr data: Callback data
     """
-    callback_id: Optional[int] = None
+    id: Optional[int] = None
     sender: Optional[TelegramUser] = None
     message: Optional[TelegramMessage] = None
     data: Optional[str] = None
@@ -66,19 +60,13 @@ class TelegramCallbackQuery:
         """
         :param callback_query_dict: Callback query dictionary from update
         """
-        attributes = {
-            "callback_id:": "id",
-            "sender": "from",
-            "message": "message",
-            "data": "data"
-        }
-        for key in attributes:
+        for key in callback_query_dict:
             try:
-                setattr(self, key, callback_query_dict[attributes[key]])
+                setattr(self, key, callback_query_dict[key])
             except KeyError:
                 setattr(self, key, None)
-        if self.callback_id:
-            self.callback_id = int(self.callback_id)
+        if self.id:
+            self.id = int(self.id)
         if self.sender:
             self.sender = TelegramUser(self.sender)
         if self.message:
@@ -102,14 +90,9 @@ class TelegramUpdate:
         """
         :param update_dict: Update object dict
         """
-        attributes = {
-            "update_id": "update_id",
-            "message": "message",
-            "callback_query": "callback_query"
-        }
-        for key in attributes:
+        for key in update_dict:
             try:
-                setattr(self, key, update_dict[attributes[key]])
+                setattr(self, key, update_dict[key])
             except KeyError:
                 setattr(self, key, None)
         if self.update_id:
@@ -127,12 +110,12 @@ class TelegramMessage:
 
     :attr is_bot_command: Bool of if message is bot command
     :attr chat_id: Chat ID of the message
-    :attr msg_id: ID of the message
+    :attr message_id: ID of the message
     :attr sender: Message sender User
     :attr text: Message text
     """
     is_bot_command: bool
-    msg_id: Optional[int] = None
+    message_id: Optional[int] = None
     chat_dict: Optional[dict] = None
     chat_id: Optional[int] = None
     sender: Optional[TelegramUser] = None
@@ -142,19 +125,13 @@ class TelegramMessage:
         """
         :param message_dict: Message dictionary from update
         """
-        attributes = {
-            "msg_id": "message_id",
-            "chat_dict": "chat",
-            "sender": "from",
-            "text": "text"
-        }
-        for key in attributes:
+        for key in message_dict:
             try:
-                setattr(self, key, message_dict[attributes[key]])
+                setattr(self, key, message_dict[key])
             except KeyError:
                 setattr(self, key, None)
-        if self.msg_id:
-            self.msg_id = int(self.msg_id)
+        if self.message_id:
+            self.message_id = int(self.message_id)
         if self.chat_dict:
             self.chat_id = int(self.chat_dict["id"])
         if self.sender:
