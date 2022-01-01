@@ -469,6 +469,7 @@ def main():
     access_token = "<access_token>"
     example_bot = ExampleBot(access_token, api_id, api_hash)
     example_bot.enable_logging("DEBUG")
+    example_bot.callback_query_handler = OnCallbackQuery
 
     # example_bot.saved_data_path = Path("data.json") (default)
 
