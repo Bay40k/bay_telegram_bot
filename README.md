@@ -136,15 +136,16 @@ from pyrogram.types import InlineKeyboardButton
 
 class OnCallbackQuery:
     def __init__(self, bot: TelegramBot, callback_query: TelegramCallbackQuery):
-        # Do stuff
-        pass
+        # Access CallbackQuery data
+        # Example: Send callback query data back to where it was received
+        bot.send_message(callback_query.message.chat_id, callback_query.data)
 
 
 class MyBot(TelegramBot):
     def __init__(self, access_token: str, api_id: int, api_hash: str):
         self.callback_query_handler = OnCallbackQuery  # Type: Callable[[TelegramBot, TelegramCallbackQuery], None]
         super().__init__(access_token)
-        self.pyrogram_client = PyrogramPlugin("telegram_mtproto", api_id, api_hash, phone_number="<phone_number>>")
+        self.pyrogram_client = PyrogramPlugin("telegram_mtproto", api_id, api_hash, phone_number="<phone_number>")
         self.pyrogram_bot = PyrogramPlugin("telegram_mtproto_bot", api_id, api_hash, bot_token=access_token)
 
 
@@ -167,6 +168,7 @@ def main():
     api_hash = "<api_hash>"
     telegram_bot = MyBot(access_token, api_id, api_hash)
     telegram_bot.bot_commands = [MyCommand]
+    telegram_bot.callback_query_handler = OnCallbackQuery
     telegram_bot.start()
 ```
 
