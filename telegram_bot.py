@@ -134,8 +134,8 @@ class TelegramMessage:
             self.message_id = int(self.message_id)
         if self.chat_dict:
             self.chat_id = int(self.chat_dict["id"])
-        if self.sender:
-            self.sender = TelegramUser(self.sender)
+        if "from" in message_dict:
+            self.sender = TelegramUser(message_dict["from"])
         self.is_bot_command = False
         try:
             if message_dict["entities"][0]["type"] == "bot_command":
