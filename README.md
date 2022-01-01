@@ -3,8 +3,9 @@
 Simple object oriented Telegram HTTP API bot.
 
 ##### Installation:
-```python
+```commandline
 pip install -r requirements.txt
+python example_bot.py
 ```
 
 ##### Usage:
@@ -77,7 +78,7 @@ def main():
 ```python
 from telegram_bot import TelegramBot, TelegramMessage, BotCommand
 from pathlib import Path
-from plugins import PyrogramPlugin
+from plugins.pyrogramplugin import PyrogramPlugin
 from typing import List, Union
 
 
@@ -168,3 +169,5 @@ def main():
     telegram_bot.bot_commands = [MyCommand]
     telegram_bot.start()
 ```
+
+More examples can be found in [example_bot.py](example_bot.py)

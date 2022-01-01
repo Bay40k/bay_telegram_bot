@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from pyarr import RadarrAPI, SonarrAPI
 from pykeyboard import InlineKeyboard
-from pyrogram import Client
 from pyrogram.types import InlineKeyboardButton
 from plugins import PyrogramPlugin
 from telegram_bot import BotCommand, TelegramMessage, TelegramBot, TelegramCallbackQuery
