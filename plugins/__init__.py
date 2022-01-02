@@ -1,1 +1,1 @@
-from pyrogramplugin import PyrogramPlugin
+from .pyrogramplugin import PyrogramPlugin
