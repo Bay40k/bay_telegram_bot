@@ -109,14 +109,15 @@ class TelegramMessage:
     Telegram message object.
 
     :attr is_bot_command: Bool of if message is bot command
-    :attr chat_id: Chat ID of the message
     :attr message_id: ID of the message
+    :attr chat: Chat object of the message
+    :attr chat_id: Chat ID of the message
     :attr sender: Message sender User
     :attr text: Message text
     """
     is_bot_command: bool
     message_id: Optional[int] = None
-    chat_dict: Optional[dict] = None
+    chat: Optional[dict] = None
     chat_id: Optional[int] = None
     sender: Optional[TelegramUser] = None
     text: Optional[str] = None
@@ -132,8 +133,8 @@ class TelegramMessage:
                 setattr(self, key, None)
         if self.message_id:
             self.message_id = int(self.message_id)
-        if self.chat_id:
-            self.chat_id = int(self.chat_dict["id"])
+        if self.chat:
+            self.chat_id = int(self.chat["id"])
         if "from" in message_dict:
             self.sender = TelegramUser(message_dict["from"])
         self.is_bot_command = False

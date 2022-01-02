@@ -291,6 +291,7 @@ class CmdSonarr(SonarrCommand):
                 set_monitor = False
 
             self.update_show_season_monitored_status(self.arguments[1], season, set_monitor)
+            return None
 
         show_result = self.sonarr.lookup_series_by_tvdb_id(query)[0]
         if not show_result:
