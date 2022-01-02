@@ -132,7 +132,7 @@ class TelegramMessage:
                 setattr(self, key, None)
         if self.message_id:
             self.message_id = int(self.message_id)
-        if self.chat_dict:
+        if self.chat_id:
             self.chat_id = int(self.chat_dict["id"])
         if "from" in message_dict:
             self.sender = TelegramUser(message_dict["from"])
