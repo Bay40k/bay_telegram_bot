@@ -16,6 +16,4 @@ class PyrogramPlugin(Client):
                 warnings.simplefilter("ignore")
                 self.connect()
 
-        def call_wrapper(*args, **kwargs):
-            return attr(*args, **kwargs)
-        return call_wrapper
+        return attr
