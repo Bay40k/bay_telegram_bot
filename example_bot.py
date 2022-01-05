@@ -380,7 +380,9 @@ class CmdYouTubeDL(BotCommand):
             'outtmpl': f'{self.download_path}/%(id)s.%(ext)s'
         }
 
+        ext = ".mp4"
         if getmp3:
+            ext = ".mp3"
             ydl_opts.update({
                 # 'ffmpeg_location': '',
                 'format'        : 'bestaudio/best',
@@ -401,7 +403,7 @@ class CmdYouTubeDL(BotCommand):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             result = ydl.extract_info(link, download=True)
 
-        video_file_name = f"{result['id']}.{result['ext']}"
+        video_file_name = f"{result['id']}.{ext}"
         video_file_path = self.download_path / video_file_name
 
         self.bot.pyrogram_bot.send_video(self.msg.chat_id, video_file_path)
