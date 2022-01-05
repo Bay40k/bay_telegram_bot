@@ -65,7 +65,6 @@ class CmdRadarr(RadarrCommand):
         dls = []
         for dl in queue_records:
             if dl["status"] == "downloading":
-                print(dl['title'])
                 dls.append({"title": dl["title"], "time left HH:MM:SS": dl["timeleft"], "status": dl["status"]})
         self.bot.send_message(self.msg.chat_id, json.dumps(dls, indent=4))
 
@@ -369,7 +368,7 @@ class CmdKanye(BotCommand):
 
 class CmdYouTubeDL(BotCommand):
     """
-    /ytdl <video URL> | mp3 <video URL> - Sends a video or mp3 file from any website supported by youtube-dl
+    /ytdl <video URL> | mp3 <video URL> - Sends a video or mp3 file from any website supported by youtube-dl/yt_dlp
     """
     def __init__(self, bot: TelegramBot, msg: TelegramMessage):
         self.bot = bot
@@ -414,12 +413,12 @@ class CmdYouTubeDL(BotCommand):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             result = ydl.extract_info(link, download=True)
 
-        video_file_path = [Path(f).resolve() for f in self.download_path.iterdir()][0]
+        video_file_name = f"{result['id']}.{result['ext']}"
+        video_file_path = self.download_path / video_file_name
 
         self.bot.pyrogram_bot.send_video(self.msg.chat_id, video_file_path)
 
-        for f in self.download_path.iterdir():
-            os.remove(Path(f))
+        os.remove(video_file_path)
 
 
 class CmdWikipedia(BotCommand):
