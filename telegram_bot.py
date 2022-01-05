@@ -164,8 +164,9 @@ class BotCommand:
         self.bot = bot
         self.msg = msg
 
-        if self.msg and self.cmd_name.lower() in self.msg.text.lower() and self.msg.is_bot_command:
-            self.arguments = self.msg.text.split(" ")[1:]
+        word_list = self.msg.text.split(" ")
+        if self.msg and self.cmd_name.lower() == word_list[0].lower() and self.msg.is_bot_command:
+            self.arguments = word_list[1:]
             from_string = ""
             if self.msg.sender:
                 from_string += f" from {self.msg.sender.first_name} (@{str(self.msg.sender.username)})"
