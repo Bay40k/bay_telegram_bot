@@ -18,22 +18,20 @@ class RadarrCommand(BotCommand, ABC):
     radarr_url: str
     radarr_api_key: str
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.radarr_url = "<radarr_url>"
         self.radarr_api_key = "<radarr_api_key>"
         self.radarr = RadarrAPI(self.radarr_url, self.radarr_api_key)
-        super().__init__()
+        super().__init__(**kwargs)
 
 
 class CmdRadarr(RadarrCommand):
     """
     /radarr <IMDB ID> | queue | remove <IMDB ID> - Adds or removes a movie from to/from Radarr
     """
-    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
-        self.bot = bot
-        self.msg = msg
+    def __init__(self, **kwargs):
         self.cmd_name = "/radarr"
-        super().__init__()
+        super().__init__(**kwargs)
 
     def remove_movie(self):
         try:
@@ -103,11 +101,9 @@ class CmdFindMovies(RadarrCommand):
     """
     /find_movies <search term> - Returns a table of movies and IMDB IDs matching search term
     """
-    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
-        self.bot = bot
-        self.msg = msg
+    def __init__(self, **kwargs):
         self.cmd_name = "/find_movies"
-        super().__init__()
+        super().__init__(**kwargs)
 
     def execute(self):
         query = " ".join(self.arguments)
@@ -156,11 +152,11 @@ class SonarrCommand(BotCommand, ABC):
     sonarr_url: str
     sonarr_api_key: str
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.sonarr_url = "<sonarr_url>"
         self.sonarr_api_key = "<sonarr_api_key>"
         self.sonarr = SonarrAPI(self.sonarr_url, self.sonarr_api_key)
-        super().__init__()
+        super().__init__(**kwargs)
 
 
 class CmdSonarr(SonarrCommand):
@@ -168,11 +164,9 @@ class CmdSonarr(SonarrCommand):
     /sonarr <TVDB ID> | queue | remove <TVDB ID> | monitor/unmonitor <TVDB ID> <season>
     - Adds/removes a series or monitor/unmonitor a series' season
     """
-    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
-        self.bot = bot
-        self.msg = msg
+    def __init__(self, **kwargs):
         self.cmd_name = "/sonarr"
-        super().__init__()
+        super().__init__(**kwargs)
 
     def get_series_from_tvdb_id(self, tvdb_id: int) -> dict:
         try:
@@ -314,11 +308,9 @@ class CmdFindShows(SonarrCommand):
     """
     /find_shows <search term> - Returns a table of shows and TVDB IDs matching search term
     """
-    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
-        self.bot = bot
-        self.msg = msg
+    def __init__(self, **kwargs):
         self.cmd_name = "/find_shows"
-        super().__init__()
+        super().__init__(**kwargs)
 
     def execute(self):
         query = " ".join(self.arguments)
@@ -354,11 +346,9 @@ class CmdKanye(BotCommand):
     """
     /kanye - Returns a Kanye quote
     """
-    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
-        self.bot = bot
-        self.msg = msg
+    def __init__(self, **kwargs):
         self.cmd_name = "/kanye"
-        super().__init__()
+        super().__init__(**kwargs)
 
     def execute(self):
         response = requests.get("https://api.kanye.rest")
@@ -370,12 +360,10 @@ class CmdYouTubeDL(BotCommand):
     """
     /ytdl <video URL> | mp3 <video URL> - Sends a video or mp3 file from any website supported by youtube-dl/yt_dlp
     """
-    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
-        self.bot = bot
-        self.msg = msg
+    def __init__(self, **kwargs):
         self.cmd_name = "/ytdl"
         self.download_path = Path("./downloads").resolve()
-        super().__init__()
+        super().__init__(**kwargs)
 
     def execute(self):
         getmp3 = False
@@ -425,11 +413,9 @@ class CmdWikipedia(BotCommand):
     """
     /wikipedia <search term> - Returns a Wikipedia page matching search term
     """
-    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
-        self.bot = bot
-        self.msg = msg
+    def __init__(self, **kwargs):
         self.cmd_name = "/wikipedia"
-        super().__init__()
+        super().__init__(**kwargs)
 
     def execute(self):
         query = " ".join(self.arguments)

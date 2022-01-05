@@ -154,13 +154,16 @@ class BotCommand:
 
     :attr cmd_name: Slash command that triggers the bot command
     :attr msg: TelegramMessage object to read from
+    :attr bot: TelegramBot object
+    :attr arguments: List of arugments provided after command
     """
     cmd_name: str
-    msg: TelegramMessage
-    bot: TelegramBot
     arguments: Optional[list]
 
-    def __init__(self):
+    def __init__(self, bot: TelegramBot, msg: TelegramMessage, **kwargs):
+        self.bot = bot
+        self.msg = msg
+
         if self.msg and self.cmd_name.lower() in self.msg.text.lower() and self.msg.is_bot_command:
             self.arguments = self.msg.text.split(" ")[1:]
             from_string = ""
@@ -185,11 +188,9 @@ class CmdHelp(BotCommand):
     """
     command_list: List[Dict[str, str]] = None
 
-    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
-        self.bot = bot
-        self.msg = msg
+    def __init__(self, **kwargs):
         self.cmd_name = "/help"
-        super().__init__()
+        super().__init__(**kwargs)
 
     def execute(self):
         if not self.command_list:
@@ -205,11 +206,9 @@ class CmdStart(BotCommand):
     """
     Start command that welcomes users when they send /start
     """
-    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
-        self.bot = bot
-        self.msg = msg
+    def __init__(self, **kwargs):
         self.cmd_name = "/start"
-        super().__init__()
+        super().__init__(**kwargs)
 
     def execute(self):
         self.bot.send_message(self.msg.chat_id, f"Hello {self.msg.sender.first_name}")
@@ -353,7 +352,7 @@ class TelegramBot:
         """
         try:
             for command in commands_to_run:
-                command(self, msg)
+                command(bot=self, msg=msg)
         except Exception as e:
             if msg:
                 self.send_message(msg.chat_id,

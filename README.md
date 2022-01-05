@@ -13,16 +13,17 @@ python example_bot.py
 from telegram_bot import BotCommand, TelegramBot, TelegramMessage
 
 class MyCommand(BotCommand):
-    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
-        self.bot = bot
-        self.msg = msg
+    def __init__(self, **kwargs):
         self.cmd_name = "/command_name_here"
-        super().__init__()
+        super().__init__(**kwargs)
 
     def execute(self):
         # Code to execute when command is detected
         # Example: Send a message back to the chat where it was receieved
         self.bot.send_message(self.msg.chat_id, "Message")
+        
+        # List of arguments provided after command
+        # self.arguments
 
 def main():
     # Set access token and initialize
@@ -56,11 +57,9 @@ class MyBot(TelegramBot):
         return requests.post(self.api_url + "sendDocument", data=data, files={"document": document})
     
 class MyCommand(BotCommand):
-    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
-        self.bot = bot
-        self.msg = msg
+    def __init__(self, **kwargs):
         self.cmd_name = "/command_name_here"
-        super().__init__()
+        super().__init__(**kwargs)
 
     def execute(self):
         with open("a_file", "rb") as f:
@@ -106,11 +105,9 @@ class MyBot(TelegramBot):
 
 
 class MyCommand(BotCommand):
-    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
-        self.bot = bot
-        self.msg = msg
+    def __init__(self, **kwargs):
         self.cmd_name = "/command_name_here"
-        super().__init__()
+        super().__init__(**kwargs)
 
     def execute(self):
         my_file = Path("/path/to/file")
@@ -150,11 +147,9 @@ class MyBot(TelegramBot):
 
 
 class MyCommand(BotCommand):
-    def __init__(self, bot: TelegramBot, msg: TelegramMessage):
-        self.bot = bot
-        self.msg = msg
+    def __init__(self, **kwargs):
         self.cmd_name = "/command_name_here"
-        super().__init__()
+        super().__init__(**kwargs)
 
     def execute(self):
         keyboard = InlineKeyboard(row_width=3)
