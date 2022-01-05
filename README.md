@@ -98,7 +98,10 @@ class MyBot(TelegramBot):
         """
         messages = []
         for message in self.pyrogram_client.get_history(int(chat_id), offset=offset):
-            message["from"] = message["from_user"]
+            # Convert Pyrogram objects into bay_telegram_bot objects
+            user = message.from_user.__dict__
+            message = message.__dict__
+            message["from"] = user
             message = TelegramMessage(message)
             messages.append(message)
         return messages
