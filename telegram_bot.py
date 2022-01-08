@@ -165,7 +165,9 @@ class BotCommand:
         self.msg = msg
 
         word_list = self.msg.text.split(" ")
-        if self.msg and self.cmd_name.lower() == word_list[0].lower() and self.msg.is_bot_command:
+        is_command = self.msg and self.msg.is_bot_command and ((self.cmd_name.lower() == word_list[0].lower())
+                                                               or f"{self.cmd_name.lower()}@" in word_list[0].lower())
+        if is_command:
             self.arguments = word_list[1:]
             from_string = ""
             if self.msg.sender:
