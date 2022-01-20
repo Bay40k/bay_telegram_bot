@@ -166,7 +166,6 @@ def main():
     api_hash = "<api_hash>"
     telegram_bot = MyBot(access_token, api_id, api_hash)
     telegram_bot.bot_commands = [MyCommand]
-    telegram_bot.callback_query_handler = OnCallbackQuery
     telegram_bot.start()
 ```
 
