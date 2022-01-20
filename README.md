@@ -77,7 +77,7 @@ def main():
 ```python
 from telegram_bot import TelegramBot, TelegramMessage, BotCommand
 from pathlib import Path
-from plugins.pyrogramplugin import PyrogramPlugin
+from plugins import PyrogramPlugin
 from typing import List, Union
 
 
