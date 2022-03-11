@@ -4,6 +4,8 @@ Simple object oriented Telegram HTTP API bot.
 
 ##### Installation:
 ```commandline
+git clone https://github.com/Bay40k/bay_telegram_bot
+cd bay_telegram_bot
 pip install -r requirements.txt
 python example_bot.py
 ```
