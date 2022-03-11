@@ -29,6 +29,7 @@ class CmdRadarr(RadarrCommand):
     """
     /radarr <IMDB ID> | queue | remove <IMDB ID> - Adds or removes a movie from to/from Radarr
     """
+
     def __init__(self, **kwargs):
         self.cmd_name = "/radarr"
         super().__init__(**kwargs)
@@ -42,7 +43,7 @@ class CmdRadarr(RadarrCommand):
 
         movie_result = self.radarr.lookup_movie_by_imdb_id(query)
         try:
-            movie_id = movie_result[0]['id']
+            movie_id = movie_result[0]["id"]
         except KeyError:
             self.bot.send_message(self.msg.chat_id, "Movie is not added")
             return None
@@ -51,9 +52,11 @@ class CmdRadarr(RadarrCommand):
             self.radarr.del_movie(movie_id, delete_files=True)
         except json.JSONDecodeError:
             pass
-        movie_title = movie_result[0]['title']
-        movie_year = movie_result[0]['year']
-        self.bot.send_message(self.msg.chat_id, f"Removed movie: {movie_title} ({movie_year})")
+        movie_title = movie_result[0]["title"]
+        movie_year = movie_result[0]["year"]
+        self.bot.send_message(
+            self.msg.chat_id, f"Removed movie: {movie_title} ({movie_year})"
+        )
 
     def get_queue(self):
         try:
@@ -63,7 +66,13 @@ class CmdRadarr(RadarrCommand):
         dls = []
         for dl in queue_records:
             if dl["status"] == "downloading":
-                dls.append({"title": dl["title"], "time left HH:MM:SS": dl["timeleft"], "status": dl["status"]})
+                dls.append(
+                    {
+                        "title": dl["title"],
+                        "time left HH:MM:SS": dl["timeleft"],
+                        "status": dl["status"],
+                    }
+                )
         self.bot.send_message(self.msg.chat_id, json.dumps(dls, indent=4))
 
     def execute(self):
@@ -85,22 +94,30 @@ class CmdRadarr(RadarrCommand):
         if not movie_result:
             self.bot.send_message(self.msg.chat_id, f"No result found for: {query}")
             return None
-        add_movie = self.radarr.add_movie(movie_result[0]['imdbId'], quality_profile_id=6,
-                                          root_dir="/data/media/Movies", search_for_movie=True, tmdb=False)
+        add_movie = self.radarr.add_movie(
+            movie_result[0]["imdbId"],
+            quality_profile_id=6,
+            root_dir="/data/media/Movies",
+            search_for_movie=True,
+            tmdb=False,
+        )
         try:
             if "errorMessage" in add_movie[0]:
                 self.bot.send_message(self.msg.chat_id, add_movie[0]["errorMessage"])
                 return None
         except KeyError:
             pass
-        self.bot.send_message(self.msg.chat_id,
-                              f"Added movie: {add_movie['title']} ({add_movie['year']}) ID: {add_movie['imdbId']}")
+        self.bot.send_message(
+            self.msg.chat_id,
+            f"Added movie: {add_movie['title']} ({add_movie['year']}) ID: {add_movie['imdbId']}",
+        )
 
 
 class CmdFindMovies(RadarrCommand):
     """
     /find_movies <search term> - Returns a table of movies and IMDB IDs matching search term
     """
+
     def __init__(self, **kwargs):
         self.cmd_name = "/find_movies"
         super().__init__(**kwargs)
@@ -117,7 +134,7 @@ class CmdFindMovies(RadarrCommand):
         results = []
         for movie in movie_search:
             try:
-                imdb_id = movie['imdbId']
+                imdb_id = movie["imdbId"]
             except KeyError:
                 imdb_id = "<none found>"
             results += [(f"{movie['title']}", f"{movie['year']}", f"{imdb_id}")]
@@ -127,12 +144,18 @@ class CmdFindMovies(RadarrCommand):
             movie_year = movie[1]
             movie_id = movie[2]
             cmd_string = f"/radarr {movie_id}"
-            keyboard.row(InlineKeyboardButton(f"{i}. {movie_name} ({movie_year})", callback_data=cmd_string))
+            keyboard.row(
+                InlineKeyboardButton(
+                    f"{i}. {movie_name} ({movie_year})", callback_data=cmd_string
+                )
+            )
         try:
             self.bot.pyrogram_bot.connect()
         except ConnectionError:
             pass
-        self.bot.pyrogram_bot.send_message(self.msg.chat_id, "Results:", reply_markup=keyboard)
+        self.bot.pyrogram_bot.send_message(
+            self.msg.chat_id, "Results:", reply_markup=keyboard
+        )
 
 
 class OnCallbackQuery:
@@ -164,6 +187,7 @@ class CmdSonarr(SonarrCommand):
     /sonarr <TVDB ID> | queue | remove <TVDB ID> | monitor/unmonitor <TVDB ID> <season>
     - Adds/removes a series or monitor/unmonitor a series' season
     """
+
     def __init__(self, **kwargs):
         self.cmd_name = "/sonarr"
         super().__init__(**kwargs)
@@ -176,21 +200,23 @@ class CmdSonarr(SonarrCommand):
             return None
         series = {}
         for s in self.sonarr.get_series():
-            if s['tvdbId'] == tvdb_id:
+            if s["tvdbId"] == tvdb_id:
                 series = s
         if not series:
             self.bot.send_message(self.msg.chat_id, "Series not found")
             return None
         return series
 
-    def update_show_season_monitored_status(self, tvdb_id: int, season: int, monitored: bool, sendmsg: bool = True):
+    def update_show_season_monitored_status(
+        self, tvdb_id: int, season: int, monitored: bool, sendmsg: bool = True
+    ):
         series = self.get_series_from_tvdb_id(tvdb_id)
         if not series:
             return None
-        show_id = series['id']
+        show_id = series["id"]
         try:
             series = self.sonarr.get_series(show_id)
-            series['seasons'][season]['monitored'] = monitored
+            series["seasons"][season]["monitored"] = monitored
         except IndexError:
             if sendmsg:
                 self.bot.send_message(self.msg.chat_id, "Season not found")
@@ -200,16 +226,22 @@ class CmdSonarr(SonarrCommand):
 
         self.sonarr.upd_series(series)
         if sendmsg:
-            self.bot.send_message(self.msg.chat_id,
-                                  f"Set {series['title']} ({series['year']}) "
-                                  f"season {season} monitored status to {monitored}")
+            self.bot.send_message(
+                self.msg.chat_id,
+                f"Set {series['title']} ({series['year']}) "
+                f"season {season} monitored status to {monitored}",
+            )
 
     def unmonitor_all_seasons(self, tvdb_id: int):
         series = self.get_series_from_tvdb_id(tvdb_id)
         if not series:
             return None
-        for season in self.sonarr.lookup_series_by_tvdb_id(series['tvdbId'])[0]['seasons']:
-            self.update_show_season_monitored_status(tvdb_id, season['seasonNumber'], False, sendmsg=False)
+        for season in self.sonarr.lookup_series_by_tvdb_id(series["tvdbId"])[0][
+            "seasons"
+        ]:
+            self.update_show_season_monitored_status(
+                tvdb_id, season["seasonNumber"], False, sendmsg=False
+            )
 
     def remove_show(self):
         try:
@@ -219,10 +251,10 @@ class CmdSonarr(SonarrCommand):
             return None
 
         show_result = self.sonarr.lookup_series_by_tvdb_id(query)[0]
-        series = self.get_series_from_tvdb_id(show_result['tvdbId'])
+        series = self.get_series_from_tvdb_id(show_result["tvdbId"])
         if not series:
             return None
-        show_id = series['id']
+        show_id = series["id"]
 
         del_series = None
         try:
@@ -230,14 +262,16 @@ class CmdSonarr(SonarrCommand):
         except json.JSONDecodeError:
             pass
         try:
-            if del_series['message']:
-                self.bot.send_message(self.msg.chat_id, del_series['message'])
+            if del_series["message"]:
+                self.bot.send_message(self.msg.chat_id, del_series["message"])
                 return None
         except KeyError:
             pass
-        show_title = show_result['title']
-        show_year = show_result['year']
-        self.bot.send_message(self.msg.chat_id, f"Removed show: {show_title} ({show_year})")
+        show_title = show_result["title"]
+        show_year = show_result["year"]
+        self.bot.send_message(
+            self.msg.chat_id, f"Removed show: {show_title} ({show_year})"
+        )
 
     def get_queue(self):
         try:
@@ -247,8 +281,14 @@ class CmdSonarr(SonarrCommand):
         dls = []
         for dl in queue_records:
             if dl["status"] == "downloading":
-                print(dl['title'])
-                dls.append({"title": dl["title"], "time left HH:MM:SS": dl["timeleft"], "status": dl["status"]})
+                print(dl["title"])
+                dls.append(
+                    {
+                        "title": dl["title"],
+                        "time left HH:MM:SS": dl["timeleft"],
+                        "status": dl["status"],
+                    }
+                )
         self.bot.send_message(self.msg.chat_id, json.dumps(dls, indent=4))
 
     def execute(self):
@@ -283,15 +323,19 @@ class CmdSonarr(SonarrCommand):
             else:
                 set_monitor = False
 
-            self.update_show_season_monitored_status(self.arguments[1], season, set_monitor)
+            self.update_show_season_monitored_status(
+                self.arguments[1], season, set_monitor
+            )
             return None
 
         show_result = self.sonarr.lookup_series_by_tvdb_id(query)[0]
         if not show_result:
             self.bot.send_message(self.msg.chat_id, f"No result found for: {query}")
             return None
-        show_id = show_result['tvdbId']
-        add_show = self.sonarr.add_series(show_id, quality_profile_id=6, root_dir="<root_dir>")
+        show_id = show_result["tvdbId"]
+        add_show = self.sonarr.add_series(
+            show_id, quality_profile_id=6, root_dir="<root_dir>"
+        )
         try:
             if add_show[0]["errorMessage"]:
                 self.bot.send_message(self.msg.chat_id, add_show[0]["errorMessage"])
@@ -300,14 +344,17 @@ class CmdSonarr(SonarrCommand):
             pass
         # Optional: Unmonitor all seasons after adding
         self.unmonitor_all_seasons(show_id)
-        self.bot.send_message(self.msg.chat_id,
-                              f"Added show: {add_show['title']} ({add_show['year']}) ID: {add_show['tvdbId']}")
+        self.bot.send_message(
+            self.msg.chat_id,
+            f"Added show: {add_show['title']} ({add_show['year']}) ID: {add_show['tvdbId']}",
+        )
 
 
 class CmdFindShows(SonarrCommand):
     """
     /find_shows <search term> - Returns a table of shows and TVDB IDs matching search term
     """
+
     def __init__(self, **kwargs):
         self.cmd_name = "/find_shows"
         super().__init__(**kwargs)
@@ -324,7 +371,7 @@ class CmdFindShows(SonarrCommand):
         results = []
         for show in show_search:
             try:
-                tvdb_id = str(show['tvdbId'])
+                tvdb_id = str(show["tvdbId"])
             except KeyError:
                 tvdb_id = "<none found>"
             results += [(f"{show['title']}", f"{str(show['year'])}", f"{tvdb_id}")]
@@ -334,18 +381,25 @@ class CmdFindShows(SonarrCommand):
             show_year = show[1]
             show_id = show[2]
             cmd_string = f"/sonarr {show_id}"
-            keyboard.row(InlineKeyboardButton(f"{i}. {show_name} ({show_year})", callback_data=cmd_string))
+            keyboard.row(
+                InlineKeyboardButton(
+                    f"{i}. {show_name} ({show_year})", callback_data=cmd_string
+                )
+            )
         try:
             self.bot.pyrogram_bot.connect()
         except ConnectionError:
             pass
-        self.bot.pyrogram_bot.send_message(self.msg.chat_id, "Results: ", reply_markup=keyboard)
+        self.bot.pyrogram_bot.send_message(
+            self.msg.chat_id, "Results: ", reply_markup=keyboard
+        )
 
 
 class CmdKanye(BotCommand):
     """
     /kanye - Returns a Kanye quote
     """
+
     def __init__(self, **kwargs):
         self.cmd_name = "/kanye"
         super().__init__(**kwargs)
@@ -360,6 +414,7 @@ class CmdYouTubeDL(BotCommand):
     """
     /ytdl <video URL> | mp3 <video URL> - Sends a video or mp3 file from any website supported by youtube-dl/yt_dlp
     """
+
     def __init__(self, **kwargs):
         self.cmd_name = "/ytdl"
         self.download_path = Path("./downloads").resolve()
@@ -376,29 +431,32 @@ class CmdYouTubeDL(BotCommand):
             self.bot.send_message(self.msg.chat_id, "No link given")
             return None
 
-        ydl_opts = {
-            'outtmpl': f'{self.download_path}/%(id)s.%(ext)s'
-        }
+        ydl_opts = {"outtmpl": f"{self.download_path}/%(id)s.%(ext)s"}
 
         ext = ".mp4"
         if getmp3:
             ext = ".mp3"
-            ydl_opts.update({
-                # 'ffmpeg_location': '',
-                'format'        : 'bestaudio/best',
-                'postprocessors': [{
-                    'key'             : 'FFmpegExtractAudio',
-                    'preferredcodec'  : 'mp3',
-                    'preferredquality': '192',
-                }]
-            })
+            ydl_opts.update(
+                {
+                    # 'ffmpeg_location': '',
+                    "format": "bestaudio/best",
+                    "postprocessors": [
+                        {
+                            "key": "FFmpegExtractAudio",
+                            "preferredcodec": "mp3",
+                            "preferredquality": "192",
+                        }
+                    ],
+                }
+            )
         else:
-            ydl_opts.update({
-                'postprocessors': [{
-                    'key'           : 'FFmpegVideoConvertor',
-                    'preferedformat': 'mp4'
-                }]
-            })
+            ydl_opts.update(
+                {
+                    "postprocessors": [
+                        {"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}
+                    ]
+                }
+            )
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             result = ydl.extract_info(link, download=True)
@@ -415,6 +473,7 @@ class CmdWikipedia(BotCommand):
     """
     /wikipedia <search term> - Returns a Wikipedia page matching search term
     """
+
     def __init__(self, **kwargs):
         self.cmd_name = "/wikipedia"
         super().__init__(**kwargs)
@@ -430,19 +489,24 @@ class CmdWikipedia(BotCommand):
             self.bot.send_message(self.msg.chat_id, "No results found for query")
             return None
         wiki_page = wikipedia.page(first_search_result, auto_suggest=False)
-        wiki_summary = wikipedia.summary(wiki_page.title, sentences=2, auto_suggest=False)
+        wiki_summary = wikipedia.summary(
+            wiki_page.title, sentences=2, auto_suggest=False
+        )
 
         message_text = f"<b>{wiki_page.title}:</b>\n{wiki_summary}\n\n{wiki_page.url}"
         self.bot.send_message(self.msg.chat_id, message_text, parse_mode="html")
 
 
 class ExampleBot(TelegramBot):
-
     def __init__(self, access_token: str, api_id: int, api_hash: str):
         self.callback_query_handler = OnCallbackQuery
         super().__init__(access_token)
-        self.pyrogram_client = PyrogramPlugin("example_bot_MTProto", api_id, api_hash, phone_number="<phone_number>")
-        self.pyrogram_bot = PyrogramPlugin("example_bot", api_id, api_hash, bot_token=access_token)
+        self.pyrogram_client = PyrogramPlugin(
+            "example_bot_MTProto", api_id, api_hash, phone_number="<phone_number>"
+        )
+        self.pyrogram_bot = PyrogramPlugin(
+            "example_bot", api_id, api_hash, bot_token=access_token
+        )
 
     def delete_message(self, msg: TelegramMessage):
         self.pyrogram_client.delete_messages(msg.chat_id, msg.message_id)

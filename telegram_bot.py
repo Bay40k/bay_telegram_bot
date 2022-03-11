@@ -23,6 +23,7 @@ class TelegramUser:
     :attr first_name: User's first name
     :attr username: User's username
     """
+
     id: Optional[int] = None
     is_bot: Optional[bool] = None
     first_name: Optional[str] = None
@@ -51,6 +52,7 @@ class TelegramCallbackQuery:
     :attr message: Message attached to the callback_query
     :attr data: Callback data
     """
+
     id: Optional[int] = None
     sender: Optional[TelegramUser] = None
     message: Optional[TelegramMessage] = None
@@ -82,6 +84,7 @@ class TelegramUpdate:
     :attr callback_query: CallbackQuery object if it exists
     :attr message: Message object if it exists
     """
+
     update_id: Optional[int] = None
     message: Optional[TelegramMessage] = None
     callback_query: Optional[TelegramCallbackQuery] = None
@@ -115,6 +118,7 @@ class TelegramMessage:
     :attr sender: Message sender User
     :attr text: Message text
     """
+
     is_bot_command: bool
     message_id: Optional[int] = None
     chat: Optional[dict] = None
@@ -157,6 +161,7 @@ class BotCommand:
     :attr bot: TelegramBot object
     :attr arguments: List of arugments provided after command
     """
+
     cmd_name: str
     arguments: Optional[list]
 
@@ -165,14 +170,23 @@ class BotCommand:
         self.msg = msg
 
         word_list = self.msg.text.split(" ")
-        is_command = self.msg and self.msg.is_bot_command and ((self.cmd_name.lower() == word_list[0].lower())
-                                                               or f"{self.cmd_name.lower()}@" in word_list[0].lower())
+        is_command = (
+            self.msg
+            and self.msg.is_bot_command
+            and (
+                (self.cmd_name.lower() == word_list[0].lower())
+                or f"{self.cmd_name.lower()}@" in word_list[0].lower()
+            )
+        )
         if is_command:
             self.arguments = word_list[1:]
             from_string = ""
             if self.msg.sender:
                 from_string += f" from {self.msg.sender.first_name} (@{str(self.msg.sender.username)})"
-            logger.debug(f"Executing command: '{self.cmd_name} {' '.join(self.arguments)}'" + from_string)
+            logger.debug(
+                f"Executing command: '{self.cmd_name} {' '.join(self.arguments)}'"
+                + from_string
+            )
             self.execute()
         else:
             self.arguments = None
@@ -189,6 +203,7 @@ class CmdHelp(BotCommand):
 
     :attr command_list: Optional additional commands to add to /help command
     """
+
     command_list: List[Dict[str, str]] = None
 
     def __init__(self, **kwargs):
@@ -209,6 +224,7 @@ class CmdStart(BotCommand):
     """
     Start command that welcomes users when they send /start
     """
+
     def __init__(self, **kwargs):
         self.cmd_name = "/start"
         super().__init__(**kwargs)
@@ -230,13 +246,16 @@ class TelegramBot:
     :attr help_command: Help command to use
     :attr start_command: Start command to use
     """
+
     BotCommand = NewType("BotCommand", Callable[["TelegramBot", TelegramMessage], None])
     bot_commands: List[BotCommand] = None
     commands_to_run_on_loop: List[BotCommand] = None
     commands_to_run_on_every_message: List[BotCommand] = None
     help_command: CmdHelp = CmdHelp
     start_command: CmdStart = CmdStart
-    CallbackQueryHandler = NewType("CallbackQueryHandler", Callable[["TelegramBot", TelegramCallbackQuery], None])
+    CallbackQueryHandler = NewType(
+        "CallbackQueryHandler", Callable[["TelegramBot", TelegramCallbackQuery], None]
+    )
     callback_query_handler: CallbackQueryHandler = None
     event_loop: asyncio.BaseEventLoop = None
 
@@ -267,7 +286,9 @@ class TelegramBot:
             log_format = self.default_log_format
         logger.add(sys.stderr, format=log_format, level=log_level, colorize=True)
 
-    def send_message(self, chat_id: str, text: str, parse_mode: Optional[str] = None) -> requests.Response:
+    def send_message(
+        self, chat_id: str, text: str, parse_mode: Optional[str] = None
+    ) -> requests.Response:
         """
         Sends Telegram message.
 
@@ -290,7 +311,9 @@ class TelegramBot:
         """
         return requests.get(self.api_url + "getMyCommands").json()
 
-    def get_updates(self, offset: Optional[int] = None, allowed_updates: Optional[str] = None) -> List[TelegramUpdate]:
+    def get_updates(
+        self, offset: Optional[int] = None, allowed_updates: Optional[str] = None
+    ) -> List[TelegramUpdate]:
         """
         Retrieve Telegram updates.
 
@@ -299,13 +322,17 @@ class TelegramBot:
         :return: Requests response object
         """
         params = {"offset": offset, "allowed_updates": allowed_updates}
-        raw_updates = requests.get(self.api_url + "getUpdates", params=params).json()["result"]
+        raw_updates = requests.get(self.api_url + "getUpdates", params=params).json()[
+            "result"
+        ]
         updates = []
         for update in raw_updates:
             updates.append(TelegramUpdate(update))
         return updates
 
-    def save_json_to_file(self, data_to_save: Optional[dict] = None, file_to_save: Optional[Path] = None):
+    def save_json_to_file(
+        self, data_to_save: Optional[dict] = None, file_to_save: Optional[Path] = None
+    ):
         """
         Save JSON data to file
 
@@ -323,7 +350,9 @@ class TelegramBot:
         # Only save if data has changed
         self.saved_data = None
         if data_to_save != self.read_json_from_file():
-            logger.debug(f"{caller_name} | Saving to JSON file '{file_to_save.resolve()}'")
+            logger.debug(
+                f"{caller_name} | Saving to JSON file '{file_to_save.resolve()}'"
+            )
             with open(file_to_save, "w") as f:
                 json.dump(data_to_save, f, indent=4)
         self.saved_data = data_to_save
@@ -340,7 +369,9 @@ class TelegramBot:
         if not file_to_read:
             file_to_read = self.saved_data_path
         caller_name = inspect.stack()[1][3]
-        logger.debug(f"{caller_name} | Reading from JSON file '{file_to_read.resolve()}'")
+        logger.debug(
+            f"{caller_name} | Reading from JSON file '{file_to_read.resolve()}'"
+        )
         with open(file_to_read, "r") as f:
             self.saved_data = json.load(f)
             return self.saved_data
@@ -358,11 +389,15 @@ class TelegramBot:
                 command(bot=self, msg=msg)
         except Exception as e:
             if msg:
-                self.send_message(msg.chat_id,
-                                  f"There was an error running the command:\n{type(e).__name__}: {e}")
+                self.send_message(
+                    msg.chat_id,
+                    f"There was an error running the command:\n{type(e).__name__}: {e}",
+                )
             raise e
 
-    def run_all_commands_thread(self, commands_to_run: List[BotCommand], message: TelegramMessage):
+    def run_all_commands_thread(
+        self, commands_to_run: List[BotCommand], message: TelegramMessage
+    ):
         """
         Runs self.run_all_commands() in a thread
 
@@ -370,7 +405,9 @@ class TelegramBot:
         :param message: TelegramMessage object
         :return: None
         """
-        thread = threading.Thread(target=self.run_all_commands, args=(commands_to_run, message))
+        thread = threading.Thread(
+            target=self.run_all_commands, args=(commands_to_run, message)
+        )
         thread.start()
 
     async def on_update(self, update: TelegramUpdate):
@@ -391,10 +428,15 @@ class TelegramBot:
             return None
 
         message = update.message
-        logger.debug(f"New message from #{message.chat_id} "
-                     f"{message.sender.first_name} (@{str(message.sender.username)})")
+        logger.debug(
+            f"New message from #{message.chat_id} "
+            f"{message.sender.first_name} (@{str(message.sender.username)})"
+        )
+
         if message.is_bot_command:
-            self.run_all_commands_thread(self.builtin_commands + self.bot_commands, message)
+            self.run_all_commands_thread(
+                self.builtin_commands + self.bot_commands, message
+            )
         else:
             self.run_all_commands_thread(self.commands_to_run_on_every_message, message)
 
@@ -427,9 +469,13 @@ class TelegramBot:
         self.event_loop = asyncio.get_running_loop()
         logger.info(f"Starting bot <{sys.argv[0].split('/')[-1]}>")
         enabled_commands = {
-            "Commands enabled"                : [x.__name__ for x in self.bot_commands],
-            "Commands to run on every message": [x.__name__ for x in self.commands_to_run_on_every_message],
-            "Commands to run on loop"         : [x.__name__ for x in self.commands_to_run_on_loop]
+            "Commands enabled": [x.__name__ for x in self.bot_commands],
+            "Commands to run on every message": [
+                x.__name__ for x in self.commands_to_run_on_every_message
+            ],
+            "Commands to run on loop": [
+                x.__name__ for x in self.commands_to_run_on_loop
+            ],
         }
         for key, value in enabled_commands.items():
             logger.info(f"{key}: {value}")
