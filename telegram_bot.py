@@ -240,11 +240,14 @@ class TelegramBot:
     """
     Telegram bot object.
 
-    :attr bot_commands: List of BotCommand to execute
-    :attr commands_to_run_on_loop: List of BotCommand to execute every on_loop()
-    :attr commands_to_run_on_every_message: List of BotCommand to execute on every message
+    :attr bot_commands: List of BotCommand objects available to execute normally
+    :attr commands_to_run_on_loop: List of BotCommand to execute every loop_sleep_time interval
+    :attr commands_to_run_on_every_message: List of BotCommand to execute on every TelegramMessage
     :attr help_command: Help command to use
     :attr start_command: Start command to use
+    :attr callback_query_handler: CallbackQueryHandler object to use
+    :attr event_loop: Running event loop
+    :attr loop_sleep_time: Sleep time between loops (in seconds)
     """
 
     BotCommand = NewType("BotCommand", Callable[["TelegramBot", TelegramMessage], None])
@@ -258,6 +261,7 @@ class TelegramBot:
     )
     callback_query_handler: CallbackQueryHandler = None
     event_loop: asyncio.BaseEventLoop = None
+    loop_sleep_time: int = 10
 
     def __init__(self, access_token: str):
         if not self.bot_commands:
@@ -305,9 +309,9 @@ class TelegramBot:
 
     def get_my_commands(self) -> list:
         """
-        Sends Telegram message.
+        Gets list of commands from Telegram getMyCommands API endpoint.
 
-        :return: List of bot commands
+        :return: List of Telegram bot commands set by BotFather, returned from getMyCommands endpoint.
         """
         return requests.get(self.api_url + "getMyCommands").json()
 
@@ -315,11 +319,11 @@ class TelegramBot:
         self, offset: Optional[int] = None, allowed_updates: Optional[str] = None
     ) -> List[TelegramUpdate]:
         """
-        Retrieve Telegram updates.
+        Retrieve Telegram update objects.
 
         :param offset: ID of update to start from
         :param allowed_updates: Type of update allowed
-        :return: Requests response object
+        :return: List of Telegram update objects
         """
         params = {"offset": offset, "allowed_updates": allowed_updates}
         raw_updates = requests.get(self.api_url + "getUpdates", params=params).json()[
@@ -376,12 +380,12 @@ class TelegramBot:
             self.saved_data = json.load(f)
             return self.saved_data
 
-    def run_all_commands(self, commands_to_run: List[BotCommand], msg: TelegramMessage):
+    def run_commands(self, commands_to_run: List[BotCommand], msg: TelegramMessage):
         """
-        Run all command functions
+        Run list of BotCommand objects
 
         :param commands_to_run: List of functions to run
-        :param msg: Telegram message object
+        :param msg: TelegramMessage object, usually from TelegramUpdate object
         :return: None
         """
         try:
@@ -395,24 +399,24 @@ class TelegramBot:
                 )
             raise e
 
-    def run_all_commands_thread(
+    def run_commands_threaded(
         self, commands_to_run: List[BotCommand], message: TelegramMessage
     ):
         """
-        Runs self.run_all_commands() in a thread
+        Runs self.run_commands() in a thread
 
         :param commands_to_run: List of BotCommand
-        :param message: TelegramMessage object
+        :param message: TelegramMessage object, usually from TelegramUpdate object
         :return: None
         """
         thread = threading.Thread(
-            target=self.run_all_commands, args=(commands_to_run, message)
+            target=self.run_commands, args=(commands_to_run, message)
         )
         thread.start()
 
-    async def on_update(self, update: TelegramUpdate):
+    async def process_update(self, update: TelegramUpdate):
         """
-        Code to run on every update
+        Processes a TelegramUpdate object, obtained from get_updates()
 
         :param update: TelegramUpdate object
         :return: None
@@ -427,27 +431,36 @@ class TelegramBot:
         if not update.message:
             return None
 
-        message = update.message
+        # Process message if it exists in the update
+        await self.process_message(update.message)
+
+    async def process_message(self, message: TelegramMessage):
+        """
+        Processes a TelegramMessage object from a TelegramUpdate object
+
+        :param message: TelegramMessage object
+        :return: None
+        """
         logger.debug(
             f"New message from #{message.chat_id} "
             f"{message.sender.first_name} (@{str(message.sender.username)})"
         )
 
         if message.is_bot_command:
-            self.run_all_commands_thread(
+            self.run_commands_threaded(
                 self.builtin_commands + self.bot_commands, message
             )
         else:
-            self.run_all_commands_thread(self.commands_to_run_on_every_message, message)
+            self.run_commands_threaded(self.commands_to_run_on_every_message, message)
 
-    async def on_loop(self):
+    async def process_all_updates(self):
         """
-        Code to run on each loop
+        Processes all updates from get_updates()
 
         :return: None
         """
         self.read_json_from_file()
-        self.run_all_commands_thread(self.commands_to_run_on_loop, message=None)
+        self.run_commands_threaded(self.commands_to_run_on_loop, message=None)
         current_update_id = self.saved_data["current_update_id"]
         logger.info(f"Current update ID: {current_update_id}")
 
@@ -456,7 +469,7 @@ class TelegramBot:
             return None
 
         for update in updates:
-            await self.on_update(update)
+            await self.process_update(update)
 
         self.save_json_to_file()
 
@@ -481,11 +494,11 @@ class TelegramBot:
             logger.info(f"{key}: {value}")
         while True:
             try:
-                await self.on_loop()
+                await self.process_all_updates()
             except Exception as e:
                 logger.error(e)
                 logger.error(traceback.format_exc())
-            await asyncio.sleep(10)
+            await asyncio.sleep(self.loop_sleep_time)
 
     def start(self):
         """
