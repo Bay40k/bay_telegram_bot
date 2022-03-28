@@ -232,7 +232,7 @@ class CmdStart(BotCommand):
     def execute(self):
         self.bot.send_message(self.msg.chat_id, f"Hello {self.msg.sender.first_name}")
         self.msg.text = "/help"
-        self.bot.help_command(self.bot, self.msg)
+        self.bot.help_command(bot=self.bot, msg=self.msg)
 
 
 @dataclass
