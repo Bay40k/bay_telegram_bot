@@ -206,9 +206,7 @@ class CmdHelp(BotCommand):
 
     command_list: List[Dict[str, str]] = None
 
-    def __init__(self, **kwargs):
-        self.cmd_name = "/help"
-        super().__init__(**kwargs)
+    cmd_name = "/help"
 
     def execute(self):
         if not self.command_list:
@@ -225,14 +223,11 @@ class CmdStart(BotCommand):
     Start command that welcomes users when they send /start
     """
 
-    def __init__(self, **kwargs):
-        self.cmd_name = "/start"
-        super().__init__(**kwargs)
+    cmd_name = "/start"
 
     def execute(self):
         self.bot.send_message(self.msg.chat_id, f"Hello {self.msg.sender.first_name}")
-        self.msg.text = "/help"
-        self.bot.help_command(bot=self.bot, msg=self.msg)
+        self.bot.help_command().execute()
 
 
 @dataclass
