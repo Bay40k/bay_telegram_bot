@@ -171,5 +171,3 @@ def main():
     telegram_bot.callback_query_handler = OnCallbackQuery
     telegram_bot.start()
 ```
-
-More examples can be found in [example_bot.py](example_bot.py)
