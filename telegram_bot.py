@@ -3,7 +3,7 @@ import asyncio
 from dataclasses import dataclass
 from loguru import logger
 from pathlib import Path
-from typing import Callable, Dict, List, NewType, Optional
+from typing import Callable, Dict, List, NewType, Optional, Union
 import inspect
 import json
 import requests
@@ -170,9 +170,6 @@ class BotCommand:
         self.arguments = msg.text.split(" ")[1:]
         self.bot = bot
         self.msg = msg
-
-    # def set_arguments(self, arguments: list):
-    #     self.arguments = arguments
 
     def execute(self):
         """
@@ -364,6 +361,22 @@ class TelegramBot:
             self.saved_data = json.load(f)
             return self.saved_data
 
+    @staticmethod
+    def command_was_called_by_user(
+        message: TelegramMessage, command_name: Union[str, list]
+    ) -> bool:
+        """
+        Check if command was called by a user in a message
+
+        :param message: Telegram message object
+        :param command_name: Command name
+        :return: True if command was called, False otherwise
+        """
+        user_command = message.text.split(" ")[0].lower()
+        if type(command_name) == str:
+            command_name = (command_name,)
+        return user_command in command_name or f"{command_name}@" in user_command
+
     def run_commands(self, commands_to_run: List[BotCommand], msg: TelegramMessage):
         """
         Run list of BotCommand objects
@@ -375,22 +388,17 @@ class TelegramBot:
 
         for command in commands_to_run:
             from_string = "No sender"
-            if msg and msg.text:
-                word_list = msg.text.split(" ")
-                if not (
-                    command.cmd_name.lower() == word_list[0].lower()
-                    or f"{command.cmd_name.lower()}@" in word_list[0].lower()
-                ):
-                    continue
-                if msg.sender:
-                    from_string = (
-                        f"from {msg.sender.first_name} (@{str(msg.sender.username)})"
-                    )
+            if msg and msg.sender:
+                from_string = (
+                    f"from {msg.sender.first_name} (@{str(msg.sender.username)})"
+                )
             try:
                 # Make sure command is an instance of a BotCommand class before running .execute()
                 if BotCommand in inspect.getmro(command):
+                    if not self.command_was_called_by_user(msg, command.cmd_name):
+                        continue
                     logger.debug(
-                        f"Executing command: {command.cmd_name} | {from_string} | {msg.text}"
+                        f"Executing command: {command.__name__} | {from_string} | {msg.text}"
                     )
                     command(bot=self, msg=msg).execute()
             except AttributeError:
@@ -405,18 +413,16 @@ class TelegramBot:
                 raise e
 
     def run_commands_threaded(
-        self, commands_to_run: List[BotCommand], message: TelegramMessage
+        self, commands_to_run: List[BotCommand], msg: TelegramMessage
     ):
         """
         Runs self.run_commands() in a thread
 
         :param commands_to_run: List of BotCommand
-        :param message: TelegramMessage object, usually from TelegramUpdate object
+        :param msg: TelegramMessage object, usually from TelegramUpdate object
         :return: None
         """
-        thread = threading.Thread(
-            target=self.run_commands, args=(commands_to_run, message)
-        )
+        thread = threading.Thread(target=self.run_commands, args=(commands_to_run, msg))
         thread.start()
 
     async def process_update(self, update: TelegramUpdate):
@@ -465,7 +471,7 @@ class TelegramBot:
         :return: None
         """
         self.read_json_from_file()
-        self.run_commands_threaded(self.commands_to_run_on_loop, message=None)
+        self.run_commands_threaded(self.commands_to_run_on_loop, msg=None)
         current_update_id = self.saved_data["current_update_id"]
         logger.info(f"Current update ID: {current_update_id}")
 
