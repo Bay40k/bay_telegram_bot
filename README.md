@@ -19,7 +19,7 @@ class MyCommand(BotCommand):
 
     def execute(self):
         # Code to execute when command is detected
-        # Example: Send a message back to the chat where it was receieved
+        # Example: Send a msg back to the chat where it was receieved
         self.bot.send_message(self.msg.chat_id, "Message")
         
         # List of arguments provided after command
@@ -44,7 +44,7 @@ if __name__ == "__main__":
 ```
 ##### Extending objects
 ```python
-from telegram_bot import TelegramBot, TelegramMessage, BotCommand
+from telegram_bot import TelegramBot, BotCommand
 import requests
 from typing import BinaryIO
 
@@ -91,8 +91,8 @@ class MyBot(TelegramBot):
     def get_history(self, chat_id: Union[int, str], offset: int = 0) -> List[TelegramMessage]:
         """
         Example usage in a BotCommand method:
-        for message in self.bot.get_history(self.msg.chat_id):
-            print(f"{message.sender.first_name}: {message.text}")
+        for msg in self.bot.get_history(self.msg.chat_id):
+            print(f"{msg.sender.first_name}: {msg.text}")
         """
         messages = []
         for message in self.pyrogram_client.get_history(int(chat_id), offset=offset):
@@ -124,7 +124,7 @@ def main():
 #### Extending objects to handle inline keyboard callbacks with Pyrogram and [PyKeyboard](https://github.com/pystorage/pykeyboard)
 
 ```python
-from telegram_bot import TelegramBot, TelegramMessage, BotCommand, TelegramCallbackQuery
+from telegram_bot import TelegramBot, BotCommand, TelegramCallbackQuery
 from plugins import PyrogramPlugin
 from pykeyboard import InlineKeyboard
 from pyrogram.types import InlineKeyboardButton

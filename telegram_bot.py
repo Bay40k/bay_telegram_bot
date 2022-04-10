@@ -1,6 +1,5 @@
 from __future__ import annotations
 import asyncio
-from abc import abstractmethod
 from dataclasses import dataclass
 from loguru import logger
 from pathlib import Path
@@ -157,8 +156,6 @@ class BotCommand:
     Bot command object.
 
     :attr cmd_name: Slash command that triggers the bot command
-    :attr msg: TelegramMessage object to read from
-    :attr bot: TelegramBot object
     :attr arguments: List of arugments provided after command
     """
 
@@ -166,34 +163,24 @@ class BotCommand:
     arguments: Optional[list]
 
     def __init__(self, bot: TelegramBot, msg: TelegramMessage, **kwargs):
+        """
+        :param bot: TelegramBot object
+        :param msg: TelegramMessage object
+        """
+        self.arguments = msg.text.split(" ")[1:]
         self.bot = bot
         self.msg = msg
 
-        word_list = self.msg.text.split(" ")
-        is_command = (
-            self.msg
-            and self.msg.is_bot_command
-            and (
-                (self.cmd_name.lower() == word_list[0].lower())
-                or f"{self.cmd_name.lower()}@" in word_list[0].lower()
-            )
-        )
-        if is_command:
-            self.arguments = word_list[1:]
-            from_string = ""
-            if self.msg.sender:
-                from_string += f" from {self.msg.sender.first_name} (@{str(self.msg.sender.username)})"
-            logger.debug(
-                f"Executing command: '{self.cmd_name} {' '.join(self.arguments)}'"
-                + from_string
-            )
-            self.execute()
-        else:
-            self.arguments = None
+    # def set_arguments(self, arguments: list):
+    #     self.arguments = arguments
 
-    @abstractmethod
     def execute(self):
-        raise NotImplementedError
+        """
+        Executes the bot command.
+
+        :return: Response from bot command
+        """
+        raise NotImplementedError("BotCommand.execute() not implemented")
 
 
 @dataclass
@@ -207,6 +194,9 @@ class CmdHelp(BotCommand):
     command_list: List[Dict[str, str]] = None
 
     cmd_name = "/help"
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     def execute(self):
         if not self.command_list:
@@ -227,7 +217,7 @@ class CmdStart(BotCommand):
 
     def execute(self):
         self.bot.send_message(self.msg.chat_id, f"Hello {self.msg.sender.first_name}")
-        self.bot.help_command().execute()
+        self.bot.help_command(bot=self.bot, msg=self.msg).execute()
 
 
 @dataclass
@@ -347,7 +337,6 @@ class TelegramBot:
             raise Exception("No data provided to save")
         caller_name = inspect.stack()[1][3]
         # Only save if data has changed
-        self.saved_data = None
         if data_to_save != self.read_json_from_file():
             logger.debug(
                 f"{caller_name} | Saving to JSON file '{file_to_save.resolve()}'"
@@ -383,16 +372,37 @@ class TelegramBot:
         :param msg: TelegramMessage object, usually from TelegramUpdate object
         :return: None
         """
-        try:
-            for command in commands_to_run:
+
+        for command in commands_to_run:
+            from_string = "No sender"
+            if msg and msg.text:
+                word_list = msg.text.split(" ")
+                if not (
+                    command.cmd_name.lower() == word_list[0].lower()
+                    or f"{command.cmd_name.lower()}@" in word_list[0].lower()
+                ):
+                    continue
+                if msg.sender:
+                    from_string = (
+                        f"from {msg.sender.first_name} (@{str(msg.sender.username)})"
+                    )
+            try:
+                # Make sure command is an instance of a BotCommand class before running .execute()
+                if BotCommand in inspect.getmro(command):
+                    logger.debug(
+                        f"Executing command: {command.cmd_name} | {from_string} | {msg.text}"
+                    )
+                    command(bot=self, msg=msg).execute()
+            except AttributeError:
+                logger.debug(f"Executing function: {command.__name__}")
                 command(bot=self, msg=msg)
-        except Exception as e:
-            if msg:
-                self.send_message(
-                    msg.chat_id,
-                    f"There was an error running the command:\n{type(e).__name__}: {e}",
-                )
-            raise e
+            except Exception as e:
+                if msg:
+                    self.send_message(
+                        msg.chat_id,
+                        f"There was an error running the command:\n{type(e).__name__}: {e}",
+                    )
+                raise e
 
     def run_commands_threaded(
         self, commands_to_run: List[BotCommand], message: TelegramMessage
