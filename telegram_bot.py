@@ -8,7 +8,6 @@ import inspect
 import json
 import requests
 import sys
-import threading
 import traceback
 
 
@@ -171,7 +170,7 @@ class BotCommand:
         self.bot = bot
         self.msg = msg
 
-    def execute(self):
+    async def execute(self):
         """
         Executes the bot command.
 
@@ -195,14 +194,15 @@ class CmdHelp(BotCommand):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def execute(self):
+    async def execute(self):
         if not self.command_list:
             self.command_list = []
         command_list_string = ""
-        self.command_list += self.bot.get_my_commands()["result"]
+        my_commands = await self.bot.get_my_commands()
+        self.command_list += my_commands
         for command in self.command_list:
             command_list_string += f"/{command['command']} {command['description']}\n"
-        self.bot.send_message(self.msg.chat_id, command_list_string)
+        await self.bot.send_message(self.msg.chat_id, command_list_string)
 
 
 class CmdStart(BotCommand):
@@ -212,9 +212,11 @@ class CmdStart(BotCommand):
 
     cmd_name = "/start"
 
-    def execute(self):
-        self.bot.send_message(self.msg.chat_id, f"Hello {self.msg.sender.first_name}")
-        self.bot.help_command(bot=self.bot, msg=self.msg).execute()
+    async def execute(self):
+        await self.bot.send_message(
+            self.msg.chat_id, f"Hello {self.msg.sender.first_name}"
+        )
+        await self.bot.help_command(bot=self.bot, msg=self.msg).execute()
 
 
 @dataclass
@@ -272,7 +274,7 @@ class TelegramBot:
             log_format = self.default_log_format
         logger.add(sys.stderr, format=log_format, level=log_level, colorize=True)
 
-    def send_message(
+    async def send_message(
         self, chat_id: str, text: str, parse_mode: Optional[str] = None
     ) -> requests.Response:
         """
@@ -289,7 +291,7 @@ class TelegramBot:
             data.update({"parse_mode": parse_mode})
         return requests.post(self.api_url + "sendMessage", data=data)
 
-    def get_my_commands(self) -> list:
+    async def get_my_commands(self) -> list:
         """
         Gets list of commands from Telegram getMyCommands API endpoint.
 
@@ -297,7 +299,7 @@ class TelegramBot:
         """
         return requests.get(self.api_url + "getMyCommands").json()
 
-    def get_updates(
+    async def get_updates(
         self, offset: Optional[int] = None, allowed_updates: Optional[str] = None
     ) -> List[TelegramUpdate]:
         """
@@ -316,7 +318,7 @@ class TelegramBot:
             updates.append(TelegramUpdate(update))
         return updates
 
-    def save_json_to_file(
+    async def save_json_to_file(
         self, data_to_save: Optional[dict] = None, file_to_save: Optional[Path] = None
     ):
         """
@@ -334,7 +336,9 @@ class TelegramBot:
             raise Exception("No data provided to save")
         caller_name = inspect.stack()[1][3]
         # Only save if data has changed
-        if data_to_save != self.read_json_from_file():
+        self.saved_data = None
+        current_data = await self.read_json_from_file()
+        if data_to_save != current_data:
             logger.debug(
                 f"{caller_name} | Saving to JSON file '{file_to_save.resolve()}'"
             )
@@ -342,7 +346,7 @@ class TelegramBot:
                 json.dump(data_to_save, f, indent=4)
         self.saved_data = data_to_save
 
-    def read_json_from_file(self, file_to_read: Optional[Path] = None) -> dict:
+    async def read_json_from_file(self, file_to_read: Optional[Path] = None) -> dict:
         """
         Read JSON from saved file
 
@@ -362,7 +366,7 @@ class TelegramBot:
             return self.saved_data
 
     @staticmethod
-    def command_was_called_by_user(
+    async def command_was_called_by_user(
         message: TelegramMessage, command_name: Union[str, list]
     ) -> bool:
         """
@@ -377,7 +381,9 @@ class TelegramBot:
             command_name = (command_name,)
         return user_command in command_name or f"{command_name}@" in user_command
 
-    def run_commands(self, commands_to_run: List[BotCommand], msg: TelegramMessage):
+    async def run_commands(
+        self, commands_to_run: List[BotCommand], msg: TelegramMessage
+    ):
         """
         Run list of BotCommand objects
 
@@ -395,35 +401,29 @@ class TelegramBot:
             try:
                 # Make sure command is an instance of a BotCommand class before running .execute()
                 if BotCommand in inspect.getmro(command):
-                    if not self.command_was_called_by_user(msg, command.cmd_name):
+                    called_by_user = await self.command_was_called_by_user(
+                        msg, command.cmd_name
+                    )
+                    if not called_by_user:
                         continue
                     logger.debug(
                         f"Executing command: {command.__name__} | {from_string} | {msg.text}"
                     )
-                    command(bot=self, msg=msg).execute()
+                    asyncio.run_coroutine_threadsafe(
+                        command(bot=self, msg=msg).execute(), self.event_loop
+                    )
             except AttributeError:
                 logger.debug(f"Executing function: {command.__name__}")
-                command(bot=self, msg=msg)
+                asyncio.run_coroutine_threadsafe(
+                    command(bot=self, msg=msg), self.event_loop
+                )
             except Exception as e:
                 if msg:
-                    self.send_message(
+                    await self.send_message(
                         msg.chat_id,
                         f"There was an error running the command:\n{type(e).__name__}: {e}",
                     )
                 raise e
-
-    def run_commands_threaded(
-        self, commands_to_run: List[BotCommand], msg: TelegramMessage
-    ):
-        """
-        Runs self.run_commands() in a thread
-
-        :param commands_to_run: List of BotCommand
-        :param msg: TelegramMessage object, usually from TelegramUpdate object
-        :return: None
-        """
-        thread = threading.Thread(target=self.run_commands, args=(commands_to_run, msg))
-        thread.start()
 
     async def process_update(self, update: TelegramUpdate):
         """
@@ -458,11 +458,9 @@ class TelegramBot:
         )
 
         if message.is_bot_command:
-            self.run_commands_threaded(
-                self.builtin_commands + self.bot_commands, message
-            )
+            await self.run_commands(self.builtin_commands + self.bot_commands, message)
         else:
-            self.run_commands_threaded(self.commands_to_run_on_every_message, message)
+            await self.run_commands(self.commands_to_run_on_every_message, message)
 
     async def process_all_updates(self):
         """
@@ -470,19 +468,19 @@ class TelegramBot:
 
         :return: None
         """
-        self.read_json_from_file()
-        self.run_commands_threaded(self.commands_to_run_on_loop, msg=None)
+        await self.read_json_from_file()
+        await self.run_commands(self.commands_to_run_on_loop, msg=None)
         current_update_id = self.saved_data["current_update_id"]
         logger.info(f"Current update ID: {current_update_id}")
 
-        updates = self.get_updates(current_update_id, allowed_updates="message")
+        updates = await self.get_updates(current_update_id, allowed_updates="message")
         if not updates:
             return None
 
         for update in updates:
             await self.process_update(update)
 
-        self.save_json_to_file()
+        await self.save_json_to_file()
 
     async def main(self):
         """
