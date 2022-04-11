@@ -300,7 +300,7 @@ class TelegramBot:
 
         :return: List of Telegram bot commands set by BotFather, returned from getMyCommands endpoint.
         """
-        return requests.get(self.api_url + "getMyCommands").json()
+        return requests.get(self.api_url + "getMyCommands").json()["result"]
 
     async def get_updates(
         self, offset: Optional[int] = None, allowed_updates: Optional[str] = None
