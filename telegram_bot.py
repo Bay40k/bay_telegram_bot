@@ -212,6 +212,9 @@ class CmdStart(BotCommand):
 
     cmd_name = "/start"
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     async def execute(self):
         await self.bot.send_message(
             self.msg.chat_id, f"Hello {self.msg.sender.first_name}"
