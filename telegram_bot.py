@@ -278,7 +278,7 @@ class TelegramBot:
         logger.add(sys.stderr, format=log_format, level=log_level, colorize=True)
 
     async def send_message(
-        self, chat_id: str, text: str, parse_mode: Optional[str] = None
+        self, chat_id: int | str, text: str, parse_mode: Optional[str] = None
     ) -> requests.Response:
         """
         Sends Telegram message.
@@ -288,11 +288,27 @@ class TelegramBot:
         :param parse_mode: Message parsing mode
         :return: Requests response object
         """
+        if type(chat_id) == int:
+            chat_id = str(chat_id)
         logger.debug(f"Sending message '{text}' to chat '{chat_id}'")
         data = {"chat_id": chat_id, "text": text}
         if parse_mode:
             data.update({"parse_mode": parse_mode})
         return requests.post(self.api_url + "sendMessage", data=data)
+
+    async def send_chat_action(self, chat_id: int | str, action: str):
+        """
+        Sends a chat action.
+
+        :param chat_id: Chat ID
+        :param action: Action
+        :return: Requests response object
+        """
+        if type(chat_id) == int:
+            chat_id = str(chat_id)
+        logger.debug(f"Sending chat action '{action}' for chat '{chat_id}'")
+        data = {"chat_id": chat_id, "action": action}
+        return requests.post(self.api_url + "sendChatAction", data=data)
 
     async def get_my_commands(self) -> list:
         """
