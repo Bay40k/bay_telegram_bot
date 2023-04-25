@@ -401,7 +401,7 @@ class TelegramBot:
         return user_command in command_name or f"{command_name}@" in user_command
 
     async def run_commands(
-        self, commands_to_run: List[BotCommand], msg: TelegramMessage
+        self, commands_to_run: List[BotCommand], msg: TelegramMessage, force_run: bool = False
     ):
         """
         Run list of BotCommand objects
@@ -423,7 +423,7 @@ class TelegramBot:
                     called_by_user = await self.command_was_called_by_user(
                         msg, command.cmd_name
                     )
-                    if not called_by_user:
+                    if not called_by_user and not force_run:
                         continue
                     logger.debug(
                         f"Executing command: {command.__name__} | {from_string} | {msg.text}"
@@ -479,7 +479,7 @@ class TelegramBot:
         if message.is_bot_command:
             await self.run_commands(self.builtin_commands + self.bot_commands, message)
         else:
-            await self.run_commands(self.commands_to_run_on_every_message, message)
+            await self.run_commands(self.commands_to_run_on_every_message, message, force_run=True)
 
     async def process_all_updates(self):
         """
