@@ -99,9 +99,11 @@ class TelegramUpdate:
         if self.update_id:
             self.callback_id = int(self.update_id)
         if self.message:
-            self.message = TelegramMessage(self.message)
+            self.message = TelegramMessage(update_dict["message"])
+        if "photo" in update_dict:
+            self.message = TelegramMessage(update_dict)
         if self.callback_query:
-            self.callback_query = TelegramCallbackQuery(self.callback_query)
+            self.callback_query = TelegramCallbackQuery(update_dict["callback_query"])
 
 
 @dataclass
@@ -166,7 +168,10 @@ class BotCommand:
         :param bot: TelegramBot object
         :param msg: TelegramMessage object
         """
-        self.arguments = msg.text.split(" ")[1:]
+        if msg.text is None:
+            self.arguments = []
+        else:
+            self.arguments = msg.text.split(" ")[1:]
         self.bot = bot
         self.msg = msg
 
@@ -395,13 +400,19 @@ class TelegramBot:
         :param command_name: Command name
         :return: True if command was called, False otherwise
         """
-        user_command = message.text.split(" ")[0].lower()
+        try:
+            user_command = message.text.split(" ")[0].lower()
+        except AttributeError:
+            return False
         if type(command_name) == str:
             command_name = (command_name,)
         return user_command in command_name or f"{command_name}@" in user_command
 
     async def run_commands(
-        self, commands_to_run: List[BotCommand], msg: TelegramMessage, force_run: bool = False
+        self,
+        commands_to_run: List[BotCommand],
+        msg: TelegramMessage,
+        force_run: bool = False,
     ):
         """
         Run list of BotCommand objects
@@ -428,20 +439,20 @@ class TelegramBot:
                     logger.debug(
                         f"Executing command: {command.__name__} | {from_string} | {msg.text}"
                     )
-                    asyncio.run_coroutine_threadsafe(
-                        command(bot=self, msg=msg).execute(), self.event_loop
-                    )
+                    await command(bot=self, msg=msg).execute()
+                else:
+                    logger.debug(f"Executing function: {command.__name__}")
+                    await command(bot=self, msg=msg)
             except AttributeError:
                 logger.debug(f"Executing function: {command.__name__}")
-                asyncio.run_coroutine_threadsafe(
-                    command(bot=self, msg=msg), self.event_loop
-                )
+                await command(bot=self, msg=msg)
             except Exception as e:
                 if msg:
                     await self.send_message(
                         msg.chat_id,
                         f"There was an error running the command:\n{type(e).__name__}: {e}",
                     )
+                logger.error(e)
                 raise e
 
     async def process_update(self, update: TelegramUpdate):
@@ -479,7 +490,9 @@ class TelegramBot:
         if message.is_bot_command:
             await self.run_commands(self.builtin_commands + self.bot_commands, message)
         else:
-            await self.run_commands(self.commands_to_run_on_every_message, message, force_run=True)
+            await self.run_commands(
+                self.commands_to_run_on_every_message, message, force_run=True
+            )
 
     async def process_all_updates(self):
         """
