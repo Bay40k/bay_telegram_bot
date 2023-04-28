@@ -68,9 +68,9 @@ class TelegramCallbackQuery:
         if self.id:
             self.id = int(self.id)
         if self.sender:
-            self.sender = TelegramUser(self.sender)
+            self.sender = TelegramUser(callback_query_dict["sender"])
         if self.message:
-            self.message = TelegramMessage(self.message)
+            self.message = TelegramMessage(callback_query_dict["message"])
 
 
 @dataclass
@@ -157,7 +157,7 @@ class BotCommand:
     Bot command object.
 
     :attr cmd_name: Slash command that triggers the bot command
-    :attr arguments: List of arugments provided after command
+    :attr arguments: List of arguments provided after command
     """
 
     cmd_name: str
@@ -252,7 +252,7 @@ class TelegramBot:
         "CallbackQueryHandler", Callable[["TelegramBot", TelegramCallbackQuery], None]
     )
     callback_query_handler: CallbackQueryHandler = None
-    event_loop: asyncio.BaseEventLoop = None
+    event_loop: asyncio.AbstractEventLoop = None
     loop_sleep_time: int = 10
 
     def __init__(self, access_token: str):
@@ -411,7 +411,7 @@ class TelegramBot:
     async def run_commands(
         self,
         commands_to_run: List[BotCommand],
-        msg: TelegramMessage,
+        msg: TelegramMessage | None,
         force_run: bool = False,
     ):
         """
@@ -419,41 +419,59 @@ class TelegramBot:
 
         :param commands_to_run: List of functions to run
         :param msg: TelegramMessage object, usually from TelegramUpdate object
+        :param force_run: Force run command even if not called by user
         :return: None
         """
 
         for command in commands_to_run:
-            from_string = "No sender"
-            if msg and msg.sender:
-                from_string = (
-                    f"from {msg.sender.first_name} (@{str(msg.sender.username)})"
-                )
+            from_string = self.get_sender_string(msg)
             try:
-                # Make sure command is an instance of a BotCommand class before running .execute()
-                if BotCommand in inspect.getmro(command):
-                    called_by_user = await self.command_was_called_by_user(
-                        msg, command.cmd_name
-                    )
-                    if not called_by_user and not force_run:
-                        continue
-                    logger.debug(
-                        f"Executing command: {command.__name__} | {from_string} | {msg.text}"
-                    )
-                    await command(bot=self, msg=msg).execute()
-                else:
-                    logger.debug(f"Executing function: {command.__name__}")
-                    await command(bot=self, msg=msg)
-            except AttributeError:
-                logger.debug(f"Executing function: {command.__name__}")
-                await command(bot=self, msg=msg)
+                logger.debug(
+                    f"Attempting {self.get_command_type(command)}: {command.__name__} | {from_string} | {msg.text}"
+                )
+                await self.execute_command(command, self, msg, force_run=force_run)
             except Exception as e:
                 if msg:
                     await self.send_message(
                         msg.chat_id,
                         f"There was an error running the command:\n{type(e).__name__}: {e}",
                     )
-                logger.error(e)
                 raise e
+
+    async def execute_command(self, command, bot, msg, force_run=False):
+        command_type = self.get_command_type(command)
+        if command_type == "command":
+            command_instance = command(bot=bot, msg=msg)
+            called_by_user = await self.command_was_called_by_user(
+                msg, command_instance.cmd_name
+            )
+            if not called_by_user and not force_run:
+                return
+            command = command_instance.execute
+        logger.debug(f"Executing {self.get_command_type(command)}: {command.__name__}")
+
+        if command_type == "command":
+            await command()
+        elif command_type == "coroutine":
+            await command(bot=bot, msg=msg)
+        elif command_type == "function":
+            command(bot=bot, msg=msg)
+
+    @staticmethod
+    def get_sender_string(msg):
+        if msg and msg.sender:
+            return f"from {msg.sender.first_name} (@{str(msg.sender.username)})"
+        return "No sender"
+
+    @staticmethod
+    def get_command_type(command):
+        if inspect.isclass(command):
+            if issubclass(command, BotCommand):
+                return "command"
+        elif inspect.iscoroutinefunction(command):
+            return "coroutine"
+        else:
+            return "function"
 
     async def process_update(self, update: TelegramUpdate):
         """
