@@ -168,10 +168,10 @@ class BotCommand:
         :param bot: TelegramBot object
         :param msg: TelegramMessage object
         """
-        if msg.text is None:
-            self.arguments = []
-        else:
+        if msg is not None and msg.text is not None:
             self.arguments = msg.text.split(" ")[1:]
+        else:
+            self.arguments = []
         self.bot = bot
         self.msg = msg
 
@@ -181,7 +181,7 @@ class BotCommand:
 
         :return: Response from bot command
         """
-        raise NotImplementedError("BotCommand.execute() not implemented")
+        raise NotImplementedError(f"{self.__name__}.execute() not implemented")
 
 
 @dataclass
@@ -415,7 +415,7 @@ class TelegramBot:
         force_run: bool = False,
     ):
         """
-        Run list of BotCommand objects
+        Run list of BotCommand objects concurrently.
 
         :param commands_to_run: List of functions to run
         :param msg: TelegramMessage object, usually from TelegramUpdate object
@@ -423,12 +423,8 @@ class TelegramBot:
         :return: None
         """
 
-        for command in commands_to_run:
-            from_string = self.get_sender_string(msg)
+        async def run_command(command):
             try:
-                logger.debug(
-                    f"Attempting {self.get_command_type(command)}: {command.__name__} | {from_string} | {msg.text}"
-                )
                 await self.execute_command(command, self, msg, force_run=force_run)
             except Exception as e:
                 if msg:
@@ -437,6 +433,9 @@ class TelegramBot:
                         f"There was an error running the command:\n{type(e).__name__}: {e}",
                     )
                 raise e
+
+        tasks = [run_command(command) for command in commands_to_run]
+        await asyncio.gather(*tasks)
 
     async def execute_command(self, command, bot, msg, force_run=False):
         command_type = self.get_command_type(command)
@@ -448,8 +447,10 @@ class TelegramBot:
             if not called_by_user and not force_run:
                 return
             command = command_instance.execute
-        logger.debug(f"Executing {self.get_command_type(command)}: {command.__name__}")
-
+        from_string = self.get_sender_string(msg)
+        logger.debug(
+            f"Executing {self.get_command_type(command)}: {command.__name__} | {from_string}"
+        )
         if command_type == "command":
             await command()
         elif command_type == "coroutine":
