@@ -333,7 +333,7 @@ class TelegramBot:
         :param allowed_updates: Type of update allowed
         :return: List of Telegram update objects
         """
-        params = {"offset": offset, "allowed_updates": allowed_updates}
+        params = {"offset": offset, "timeout": 60, "allowed_updates": allowed_updates}
         raw_updates = requests.get(self.api_url + "getUpdates", params=params).json()[
             "result"
         ]
