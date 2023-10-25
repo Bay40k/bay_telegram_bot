@@ -3,7 +3,7 @@ import asyncio
 from dataclasses import dataclass
 from loguru import logger
 from pathlib import Path
-from typing import Callable, Dict, List, NewType, Optional, Union
+from typing import Callable, Dict, List, NewType, Optional, Union, Type
 import inspect
 import json
 import requests
@@ -246,8 +246,8 @@ class TelegramBot:
     bot_commands: List[BotCommand] = None
     commands_to_run_on_loop: List[BotCommand] = None
     commands_to_run_on_every_message: List[BotCommand] = None
-    help_command: CmdHelp = CmdHelp
-    start_command: CmdStart = CmdStart
+    help_command: Type[CmdHelp] = CmdHelp
+    start_command: Type[CmdStart] = CmdStart
     CallbackQueryHandler = NewType(
         "CallbackQueryHandler", Callable[["TelegramBot", TelegramCallbackQuery], None]
     )
