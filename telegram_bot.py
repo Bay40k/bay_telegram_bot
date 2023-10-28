@@ -558,7 +558,6 @@ class TelegramBot:
             except Exception as e:
                 logger.error(e)
                 logger.error(traceback.format_exc())
-            await asyncio.sleep(self.loop_sleep_time)
 
     def start(self):
         """
